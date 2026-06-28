@@ -98,6 +98,36 @@ npm run dev                 # Starts the dashboard on http://localhost:3000
 3. **Embed the Widget**: Integrate the code from the `eductrl-chat-widget-new` folder into your frontend website to allow customers to start chatting.
 4. **Chat & Escalate**: As customers ask questions, the AI will attempt to answer them using the vector database. If the AI cannot help, the chat is escalated to a human agent, triggering a real-time notification on the dashboard.
 
+## 🔌 Widget Integration Guide
+
+You can easily embed the KnowBridge chat widget into any external website (WordPress, Shopify, custom HTML, React, etc.) **without needing to separately host the widget frontend**.
+
+### Method 1: Serving via Backend (Recommended)
+You can build the widget into static files and have your Node.js backend serve them directly:
+1. Navigate to the widget folder and build it:
+   ```bash
+   cd eductrl-chat-widget-new
+   npm run build
+   ```
+2. Copy the contents of the generated `dist` folder into a new `public` directory inside your `backend` folder.
+3. Update your `backend/server.js` to serve these static files:
+   ```javascript
+   app.use('/widget', express.static(path.join(__dirname, 'public')));
+   ```
+4. Now, any external website can embed the widget by simply adding this to their HTML:
+   ```html
+   <iframe src="https://your-backend-domain.com/widget/index.html" 
+           style="position: fixed; bottom: 20px; right: 20px; width: 400px; height: 600px; border: none; border-radius: 12px; z-index: 9999;">
+   </iframe>
+   ```
+
+### Method 2: Script Tag Embedding (Advanced)
+If you configure Vite in `eductrl-chat-widget-new/vite.config.js` to build a single standalone JavaScript file (disabling code-splitting), you can host that `.js` file on your backend or a CDN. Other sites can then inject the bot directly into their DOM:
+```html
+<script src="https://your-backend-domain.com/widget.js" defer></script>
+<div id="knowbridge-chat-root"></div>
+```
+
 ## Project Structure
 
 ```text
