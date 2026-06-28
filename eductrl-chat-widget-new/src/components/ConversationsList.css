@@ -1,0 +1,212 @@
+.knowbridge-conversations-list {
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #333;
+}
+
+.knowbridge-conversations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background-color: var(--theme-color, #007bff);
+  color: white;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bot-avatar {
+  width: 32px;
+  height: 32px;
+  background-color: white;
+  color: var(--theme-color, #007bff);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.bot-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.knowbridge-conversations-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px;
+  background-color: #fff;
+}
+
+.knowbridge-no-conversations {
+  text-align: center;
+  color: #666;
+  padding: 40px 20px;
+}
+
+.knowbridge-conversation-card {
+  display: flex !important;
+  align-items: flex-start !important;
+  background: #fff !important;
+  padding: 12px 0 !important;
+  margin: 0 !important;
+  cursor: pointer;
+  border: none !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s;
+  gap: 12px;
+}
+
+.knowbridge-conversation-card:hover {
+  background-color: #fafafa !important;
+}
+
+.knowbridge-conversation-card:last-child {
+  border-bottom: none !important;
+}
+
+.knowbridge-card-avatar {
+  width: 32px;
+  height: 32px;
+  background-color: #f2f2f2;
+  color: var(--theme-color, #007bff);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 6px;
+  margin-top: 2px;
+}
+
+.knowbridge-card-avatar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.knowbridge-card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.knowbridge-card-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 2px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.knowbridge-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.knowbridge-card-title {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  color: #111 !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.knowbridge-card-dot {
+  color: #888;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.knowbridge-card-time {
+  color: #888;
+  font-size: 13px;
+}
+
+.knowbridge-status-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  background-color: #f0f0f0;
+  color: #555;
+}
+
+.knowbridge-card-preview {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 13px !important;
+  color: #888 !important;
+  line-height: 1.3 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.conversations-footer {
+  padding: 16px;
+  background: white;
+  border-top: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.new-chat-btn {
+  background-color: var(--theme-color, #007bff);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 24px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  width: auto;
+}
+
+.new-chat-btn:hover {
+  opacity: 0.9;
+}
+
+.branding {
+  font-size: 11px;
+  color: #888;
+}
+
+.branding strong {
+  color: #444;
+}

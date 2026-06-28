@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Environment Variables
+.env
+.env.*
+*.backup
+.env.production.local
+
+# Build output
+dist/
+build/
+.next/
+
+# Logs
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# User Uploads & Data
+backend/uploads/
+uploads/
