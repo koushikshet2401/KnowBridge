@@ -22,9 +22,9 @@ const ConversationsList = ({ conversations, onSelectChat, onNewChat, onClose }) 
         </div>
       </div>
 
-      <div className="knowbridge-conversations-scroll-area">
+      <div className="KnowBridge-conversations-scroll-area">
         {conversations.length === 0 ? (
-          <div className="knowbridge-no-conversations">
+          <div className="KnowBridge-no-conversations">
             <p>No previous conversations.</p>
           </div>
         ) : (
@@ -48,26 +48,26 @@ const ConversationsList = ({ conversations, onSelectChat, onNewChat, onClose }) 
             return (
               <div 
                 key={chat.id} 
-                className="knowbridge-conversation-card"
+                className="KnowBridge-conversation-card"
                 onClick={() => onSelectChat(chat.id)}
               >
-                <div className="knowbridge-card-avatar">
+                <div className="KnowBridge-card-avatar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2z"></path>
                   </svg>
                 </div>
-                <div className="knowbridge-card-content">
-                  <div className="knowbridge-card-header">
-                    <div className="knowbridge-card-title-group">
-                      <span className="knowbridge-card-title">KnowBridge Bot</span>
-                      <span className="knowbridge-card-dot">·</span>
-                      <span className="knowbridge-card-time">{timeStr}</span>
+                <div className="KnowBridge-card-content">
+                  <div className="KnowBridge-card-header">
+                    <div className="KnowBridge-card-title-group">
+                      <span className="KnowBridge-card-title">KnowBridge Bot</span>
+                      <span className="KnowBridge-card-dot">·</span>
+                      <span className="KnowBridge-card-time">{timeStr}</span>
                     </div>
                     {chat.status === 'closed' && (
-                      <span className="knowbridge-status-badge closed">Closed</span>
+                      <span className="KnowBridge-status-badge closed">Closed</span>
                     )}
                   </div>
-                  <div className="knowbridge-card-preview">{preview}</div>
+                  <div className="KnowBridge-card-preview">{preview}</div>
                 </div>
               </div>
             );

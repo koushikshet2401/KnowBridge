@@ -22,7 +22,7 @@ const initWidget = (customConfig) => {
 
   let userId    = (config.user && config.user.id)    || config.userId    || '';
   if (!userId) {
-    const domainKey = `knowbridge_guest_id_${clientDomain}`;
+    const domainKey = `KnowBridge_guest_id_${clientDomain}`;
     userId = localStorage.getItem(domainKey);
     if (!userId) {
       userId = `guest_${Math.random().toString(36).substring(2, 15)}_${Date.now()}`;
@@ -47,13 +47,20 @@ const initWidget = (customConfig) => {
 
   console.log('🚀 KnowBridge Chat init | API:', apiUrl, '| User:', userName);
 
-  const rootEl = document.getElementById('knowbridge-chat-root');
+  const rootEl = document.getElementById('KnowBridge-chat-root');
   if (!rootEl) {
-    console.error('KnowBridge: #knowbridge-chat-root div not found in page HTML.');
+    console.error('KnowBridge: #KnowBridge-chat-root div not found in page HTML.');
     return;
   }
 
   const fetchTokenAndMount = () => {
+    if (config.authToken) {
+      window.CHAT_CONFIG = Object.assign({}, window.CHAT_CONFIG, { authToken: config.authToken });
+      console.log('✅ Auth token injected from config');
+      mountWidget();
+      return;
+    }
+
     const csrfMeta  = document.querySelector('meta[name="csrf-token"]');
     const csrfToken = csrfMeta ? csrfMeta.content : '';
 
@@ -69,12 +76,10 @@ const initWidget = (customConfig) => {
       .then(data => {
         if (data.success && data.token) {
           window.CHAT_CONFIG = Object.assign({}, window.CHAT_CONFIG, { authToken: data.token });
-          console.log('✅ Auth token obtained');
-        } else {
-          console.warn('KnowBridge: Auth token not obtained — widget still works.');
+          console.log('✅ Auth token obtained from laravel');
         }
       })
-      .catch(err => console.warn('KnowBridge: Token fetch failed:', err, '(widget still works)'))
+      .catch(err => console.warn('KnowBridge: Token fetch failed:', err))
       .finally(() => mountWidget());
   };
 
@@ -91,7 +96,7 @@ const initWidget = (customConfig) => {
           laravelUrl={laravelUrl}
           theme={theme}
           position={position}
-          customTrigger={true}
+          customTrigger={Boolean(config.customTrigger)}
           isOpen={isOpen}
           onToggle={() => setIsOpen(p => !p)}
           onClose={() => setIsOpen(false)}

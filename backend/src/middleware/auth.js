@@ -28,7 +28,7 @@ const getLaravelAppUrl = (req) => {
   return appUrl.replace(/\/$/, '');
 };
 
-const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET || 'knowbridge-chat-secret-2026';
+const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET || 'KnowBridge-chat-secret-2026';
 
 const jwt = require('jsonwebtoken');
 const Agent = require('../models/Agent');
@@ -50,7 +50,7 @@ const authenticate = async (req, res, next) => {
     const token = tokenFromHeader || tokenFromAuth;
     
     logger.info(`🔑 Headers received:`);
-    logger.info(`   - x-knowbridge-token: ${tokenFromHeader ? tokenFromHeader.substring(0, 20) + '...' : 'NOT PROVIDED'}`);
+    logger.info(`   - x-KnowBridge-token: ${tokenFromHeader ? tokenFromHeader.substring(0, 20) + '...' : 'NOT PROVIDED'}`);
     logger.info(`   - authorization: ${tokenFromAuth ? tokenFromAuth.substring(0, 20) + '...' : 'NOT PROVIDED'}`);
     logger.info(`   - Final token: ${token ? token.substring(0, 20) + '... (length: ' + token.length + ')' : 'NONE'}`);
     
@@ -63,7 +63,7 @@ const authenticate = async (req, res, next) => {
         error: 'Authentication required. Please provide a valid token.',
         debug: {
           headersReceived: Object.keys(req.headers),
-          expectedHeaders: ['x-knowbridge-token', 'authorization']
+          expectedHeaders: ['x-KnowBridge-token', 'authorization']
         }
       });
     }

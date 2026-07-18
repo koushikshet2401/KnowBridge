@@ -79,9 +79,9 @@ class EmailService {
       <div class="footer">
         <div class="footer-brand">KnowBridge CRM</div>
         <div class="footer-links">
-          <a href="https://www.knowbridge.com">Website</a>
-          <a href="https://www.knowbridge.com/knowledgebase">Knowledge Base</a>
-          <a href="mailto:info@knowbridge.com">Contact Support</a>
+          <a href="https://www.KnowBridge.com">Website</a>
+          <a href="https://www.KnowBridge.com/knowledgebase">Knowledge Base</a>
+          <a href="mailto:info@KnowBridge.com">Contact Support</a>
         </div>
         <div class="footer-copy">
           © ${new Date().getFullYear()} KnowBridge. All rights reserved.<br>
@@ -230,7 +230,7 @@ class EmailService {
       <p class="greeting">✅ SMTP Test Successful!</p>
       <p class="intro">Your email configuration is working correctly. KnowBridge will now send professional notifications to your team.</p>
       <div class="cta-section">
-        <a href="https://www.knowbridge.com" class="cta-button">Visit KnowBridge</a>
+        <a href="https://www.KnowBridge.com" class="cta-button">Visit KnowBridge</a>
       </div>
     `;
     try {

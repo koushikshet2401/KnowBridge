@@ -143,7 +143,7 @@ const ChatWidget = ({
   };
 
   return (
-    <div className={`knowbridge-chat-widget theme-${safeTheme} position-${safePosition} ${safeCustomTrigger ? 'custom-trigger-mode' : ''} ${isExpanded ? 'knowbridge-chat-expanded' : ''}`}>
+    <div className={`KnowBridge-chat-widget theme-${safeTheme} position-${safePosition} ${safeCustomTrigger ? 'custom-trigger-mode' : ''} ${isExpanded ? 'KnowBridge-chat-expanded' : ''}`}>
       {!safeCustomTrigger && (
         <ChatBubble
           isOpen={safeIsOpen}

@@ -50,7 +50,7 @@ const Settings = () => {
   const [pwResult, setPwResult]   = useState(null)
 
   // Create agent state
-  const [agentForm, setAgentForm]     = useState({ name: '', email: '', password: '', role: 'agent' })
+  const [agentForm, setAgentForm]     = useState({ name: '', email: '', password: '', role: 'agent', websiteDomain: '' })
   const [agentLoading, setAgentLoading] = useState(false)
   const [agentResult, setAgentResult]   = useState(null)
 
@@ -92,7 +92,7 @@ const Settings = () => {
     try {
       await api.post('/admin/agents', agentForm)
       setAgentResult({ success: true, message: `Agent "${agentForm.name}" created successfully!` })
-      setAgentForm({ name: '', email: '', password: '', role: 'agent' })
+      setAgentForm({ name: '', email: '', password: '', role: 'agent', websiteDomain: '' })
     } catch (error) {
       setAgentResult({ success: false, message: error.response?.data?.error || 'Failed to create agent' })
     } finally {
@@ -225,6 +225,13 @@ const Settings = () => {
               showToggle
               showValue={false}
               onToggle={() => {}}
+            />
+            <InputField
+              label="Website Domain"
+              type="text"
+              value={agentForm.websiteDomain}
+              onChange={e => setAgentForm(p => ({ ...p, websiteDomain: e.target.value }))}
+              placeholder="e.g. clientwebsite.com"
             />
 
             <div>

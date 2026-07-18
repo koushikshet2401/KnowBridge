@@ -156,12 +156,11 @@ RULES:
         };
       }
 
-      // ── Step 4: Call OpenAI ───────────────────────
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages,
         temperature: hasKBContent ? 0.0 : 0.4,
-        max_tokens: 400,
+        max_tokens: 1000,
         presence_penalty: 0.6,
         frequency_penalty: 0.3
       });

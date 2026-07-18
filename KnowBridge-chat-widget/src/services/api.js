@@ -26,7 +26,7 @@ const createApi = () => axios.create({
 const addInterceptors = (instance) => {
   instance.interceptors.request.use((config) => {
     const token = (window.CHAT_CONFIG && window.CHAT_CONFIG.authToken)
-      || localStorage.getItem('knowbridge_chat_token')
+      || localStorage.getItem('KnowBridge_chat_token')
       || null;
     if (token) config.headers['X-KnowBridge-Token'] = token;
     if (!config.headers['X-Client-Domain']) {

@@ -175,10 +175,14 @@ const ChatWindow = ({
         );
         currentChatId = startResponse?.chat?.id ? String(startResponse.chat.id) : null;
         if (currentChatId) {
+          // Immediately show the AI response from startChat
+          if (startResponse.messages) {
+            setMessages(startResponse.messages);
+            startResponse.messages.forEach(m => messageIdsRef.current.add(String(m.id)));
+          }
           setChatId(currentChatId);
           if (onChatCreated) onChatCreated(currentChatId);
         }
-        // Since startChat already processed the user's message, we can return early
         return;
       }
 

@@ -214,10 +214,23 @@ class ChatService {
       );
       const chat = chatResult.rows[0];
 
-      // Get all admin agents
+      // Extract domain to find tenant agents
+      let tenantDomain = '';
+      if (chat && chat.client_domain) {
+        try {
+          // e.g. "http://test.com" -> "test.com", "localhost:5500" -> "localhost"
+          tenantDomain = chat.client_domain.replace(/^https?:\/\//, '').split(':')[0];
+        } catch (e) {
+          tenantDomain = chat.client_domain;
+        }
+      }
+
+      // Get all admin agents for this tenant + super admins
       const agentsResult = await pool.query(
-        `SELECT id, email, name FROM agents WHERE role IN ('admin', 'super_admin') AND email IS NOT NULL`
+        `SELECT id, email, name, role FROM agents WHERE (role = 'super_admin' OR email = 'admin@demo.com' OR (role = 'admin' AND website_domain = $1)) AND email IS NOT NULL`,
+        [tenantDomain]
       );
+      
       const agentEmails = agentsResult.rows.map(a => a.email).filter(Boolean);
 
       logger.info(`🔔 Escalating chat ${chatId} — notifying ${agentEmails.length} agents`);

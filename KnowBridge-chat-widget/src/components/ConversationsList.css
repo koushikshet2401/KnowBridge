@@ -1,4 +1,4 @@
-.knowbridge-conversations-list {
+.KnowBridge-conversations-list {
   display: flex;
   flex-direction: column;
   background-color: #fff;
@@ -6,7 +6,7 @@
   color: #333;
 }
 
-.knowbridge-conversations-header {
+.KnowBridge-conversations-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -54,20 +54,20 @@
   height: 20px;
 }
 
-.knowbridge-conversations-scroll-area {
+.KnowBridge-conversations-scroll-area {
   flex: 1;
   overflow-y: auto;
   padding: 8px 16px;
   background-color: #fff;
 }
 
-.knowbridge-no-conversations {
+.KnowBridge-no-conversations {
   text-align: center;
   color: #666;
   padding: 40px 20px;
 }
 
-.knowbridge-conversation-card {
+.KnowBridge-conversation-card {
   display: flex !important;
   align-items: flex-start !important;
   background: #fff !important;
@@ -82,15 +82,15 @@
   gap: 12px;
 }
 
-.knowbridge-conversation-card:hover {
+.KnowBridge-conversation-card:hover {
   background-color: #fafafa !important;
 }
 
-.knowbridge-conversation-card:last-child {
+.KnowBridge-conversation-card:last-child {
   border-bottom: none !important;
 }
 
-.knowbridge-card-avatar {
+.KnowBridge-card-avatar {
   width: 32px;
   height: 32px;
   background-color: #f2f2f2;
@@ -104,19 +104,19 @@
   margin-top: 2px;
 }
 
-.knowbridge-card-avatar svg {
+.KnowBridge-card-avatar svg {
   width: 16px;
   height: 16px;
 }
 
-.knowbridge-card-content {
+.KnowBridge-card-content {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.knowbridge-card-header {
+.KnowBridge-card-header {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
@@ -126,13 +126,13 @@
   border: none !important;
 }
 
-.knowbridge-card-title-group {
+.KnowBridge-card-title-group {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.knowbridge-card-title {
+.KnowBridge-card-title {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-weight: 500 !important;
   font-size: 14px !important;
@@ -141,18 +141,18 @@
   line-height: 1.2 !important;
 }
 
-.knowbridge-card-dot {
+.KnowBridge-card-dot {
   color: #888;
   font-size: 14px;
   line-height: 1;
 }
 
-.knowbridge-card-time {
+.KnowBridge-card-time {
   color: #888;
   font-size: 13px;
 }
 
-.knowbridge-status-badge {
+.KnowBridge-status-badge {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 12px;
@@ -161,7 +161,7 @@
   color: #555;
 }
 
-.knowbridge-card-preview {
+.KnowBridge-card-preview {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-size: 13px !important;
   color: #888 !important;

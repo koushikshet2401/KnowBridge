@@ -20,7 +20,7 @@ export const connectSocket = (apiUrl, userId) => {
   const socketUrl    = base.replace(/\/api\/?$/, '').replace(/\/$/, '');
   const clientDomain = (window.CHAT_CONFIG && window.CHAT_CONFIG.client_domain) || window.location.host;
   const token        = (window.CHAT_CONFIG && window.CHAT_CONFIG.authToken)
-    || localStorage.getItem('knowbridge_chat_token')
+    || localStorage.getItem('KnowBridge_chat_token')
     || null;
 
   if (socket && socket.connected) {

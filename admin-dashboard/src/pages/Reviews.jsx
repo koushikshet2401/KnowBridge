@@ -5,12 +5,14 @@ import {
   CheckCircle, RefreshCw, TrendingUp, Globe, AlertCircle, Loader
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 
 const Reviews = () => {
+  const [searchParams]            = useSearchParams()
+  const initialFilter             = searchParams.get('rating') || 'all'
   const [reviews, setReviews]     = useState([])
   const [stats, setStats]         = useState({ total: 0, positive: 0, negative: 0, satisfactionRate: 0 })
-  const [filter, setFilter]       = useState('all')
+  const [filter, setFilter]       = useState(initialFilter)
   const [period, setPeriod]       = useState('all')
   const [loading, setLoading]     = useState(true)
   const [resolveModal, setResolveModal] = useState(null)

@@ -10,6 +10,13 @@ const authController = require('../controllers/authController');
 router.post('/login', authController.login);
 
 /**
+ * @route   POST /api/auth/signup
+ * @desc    Signup agent/admin
+ * @access  Public
+ */
+router.post('/signup', authController.signup);
+
+/**
  * @route   GET /api/auth/me
  * @desc    Get current logged in user
  * @access  Private

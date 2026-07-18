@@ -3,7 +3,7 @@ const cheerio = require('cheerio');
 const logger = require('../utils/logger');
 
 class KnowledgeBaseService {
-  static KB_URL = 'https://www.knowbridge.com/knowledgebase';
+  static KB_URL = 'https://www.KnowBridge.com/knowledgebase';
 
   /**
    * Fetch and parse knowledge base articles
@@ -30,7 +30,7 @@ class KnowledgeBaseService {
           articles.push({
             title,
             content: content.substring(0, 500), // First 500 chars
-            url: link ? `https://www.knowbridge.com${link}` : null
+            url: link ? `https://www.KnowBridge.com${link}` : null
           });
         }
       });

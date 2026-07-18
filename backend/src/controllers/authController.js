@@ -42,7 +42,8 @@ exports.login = async (req, res) => {
       { 
         id: agent.id, 
         role: agent.role,
-        email: agent.email 
+        email: agent.email,
+        website_domain: agent.website_domain
       },
       process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
@@ -60,7 +61,8 @@ exports.login = async (req, res) => {
         id: agent.id,
         name: agent.name,
         email: agent.email,
-        role: agent.role
+        role: agent.role,
+        website_domain: agent.website_domain
       }
     });
 
@@ -95,6 +97,72 @@ exports.getMe = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Server error'
+    });
+  }
+};
+
+/**
+ * Signup agent/admin (Added for Demo Application)
+ */
+exports.signup = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide name, email and password'
+      });
+    }
+
+    // Check if agent already exists
+    const existing = await Agent.findByEmail(email);
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        error: 'User already exists with this email'
+      });
+    }
+
+    // Create super_admin agent
+    const agent = await Agent.create({
+      name,
+      email,
+      password,
+      role: 'super_admin'
+    });
+
+    // Generate token
+    const token = jwt.sign(
+      { 
+        id: agent.id, 
+        role: agent.role,
+        email: agent.email,
+        website_domain: agent.website_domain
+      },
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    logger.info(`Agent signed up: ${agent.email} (${agent.role})`);
+
+    res.json({
+      success: true,
+      token,
+      agent: {
+        id: agent.id,
+        name: agent.name,
+        email: agent.email,
+        role: agent.role,
+        website_domain: agent.website_domain
+      }
+    });
+
+  } catch (error) {
+    logger.error('Signup Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error during signup'
     });
   }
 };

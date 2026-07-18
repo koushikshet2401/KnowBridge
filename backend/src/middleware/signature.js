@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET || 'knowbridge-chat-secret-2026';
+const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET || 'KnowBridge-chat-secret-2026';
 
 // Local high-speed memory cache for verified Laravel SSO tokens to minimize server-to-server API overhead
 const ssoCache = new Map(); // token -> { user, expiresAt }
@@ -52,6 +52,29 @@ const verifySignature = async (req, res, next) => {
       } else {
         ssoCache.delete(token);
       }
+    }
+
+    // Try Local JWT verification first
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+      
+      const Agent = require('../models/Agent');
+      const agent = await Agent.findById(decoded.id);
+      
+      if (agent) {
+        req.agent = {
+          id: agent.id,
+          name: agent.name,
+          email: agent.email,
+          role: agent.role,
+          permissions: agent.permissions || {}
+        };
+        logger.info(`✅ [VERIFY-FLOW] Local JWT bypass success for ${req.agent.email}`);
+        return next();
+      }
+    } catch (jwtError) {
+      logger.info(`⚠️ [VERIFY-FLOW] Local JWT verification failed: ${jwtError.message}. Trying Laravel SSO...`);
     }
 
     let targetLaravelUrl;

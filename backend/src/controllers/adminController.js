@@ -11,10 +11,24 @@ exports.getDashboardStats = async (req, res) => {
     const agent = req.agent;
     logger.info(`📊 Fetching dashboard stats for ${agent.email} (${agent.role})`);
 
+    const isSuperAdmin = agent.role === 'super_admin' || agent.email === 'admin@demo.com';
+    const domain = !isSuperAdmin ? `http://${agent.website_domain}` : null;
+    const domainClauseChats = domain ? `WHERE client_domain = $1` : '';
+    const domainClauseChatsActive = domain ? `WHERE status = 'active' AND client_domain = $1` : `WHERE status = 'active'`;
+    const domainClauseChatsPending = domain ? `WHERE status = 'pending' AND client_domain = $1` : `WHERE status = 'pending'`;
+    const domainClauseChatsClosed = domain ? `WHERE status = 'closed' AND client_domain = $1` : `WHERE status = 'closed'`;
+    
+    const domainClauseMessages = domain ? `WHERE sender_type = 'user' AND chat_id IN (SELECT id FROM chats WHERE client_domain = $1)` : `WHERE sender_type = 'user'`;
+    const domainClauseFeedback = domain ? `WHERE chat_id IN (SELECT id FROM chats WHERE client_domain = $1)` : '';
+    const domainClauseFeedbackPos = domain ? `WHERE rating = 'positive' AND chat_id IN (SELECT id FROM chats WHERE client_domain = $1)` : `WHERE rating = 'positive'`;
+    const domainClauseFeedbackNeg = domain ? `WHERE rating = 'negative' AND chat_id IN (SELECT id FROM chats WHERE client_domain = $1)` : `WHERE rating = 'negative'`;
+
+    const params = domain ? [domain] : [];
+
     // Run all queries safely — individual try/catch so one failure doesn't break all
-    const safeCount = async (query, params = []) => {
+    const safeCount = async (query, p = []) => {
       try {
-        const r = await pool.query(query, params);
+        const r = await pool.query(query, p);
         return parseInt(r.rows[0]?.count || r.rows[0]?.total || 0) || 0;
       } catch (e) {
         logger.warn(`Query failed: ${e.message}`);
@@ -33,15 +47,15 @@ exports.getDashboardStats = async (req, res) => {
       positiveReviews,
       negativeReviews,
     ] = await Promise.all([
-      safeCount(`SELECT COUNT(*) as count FROM chats`),
+      safeCount(`SELECT COUNT(*) as count FROM chats ${domainClauseChats}`, params),
       safeCount(`SELECT COUNT(*) as count FROM agents`),
-      safeCount(`SELECT COUNT(*) as count FROM messages WHERE sender_type = 'user'`),
-      safeCount(`SELECT COUNT(*) as count FROM chats WHERE status = 'active'`),
-      safeCount(`SELECT COUNT(*) as count FROM chats WHERE status = 'pending'`),
-      safeCount(`SELECT COUNT(*) as count FROM chats WHERE status = 'closed'`),
-      safeCount(`SELECT COUNT(*) as count FROM feedback`),
-      safeCount(`SELECT COUNT(*) as count FROM feedback WHERE rating = 'positive'`),
-      safeCount(`SELECT COUNT(*) as count FROM feedback WHERE rating = 'negative'`),
+      safeCount(`SELECT COUNT(*) as count FROM messages ${domainClauseMessages}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM chats ${domainClauseChatsActive}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM chats ${domainClauseChatsPending}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM chats ${domainClauseChatsClosed}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM feedback ${domainClauseFeedback}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM feedback ${domainClauseFeedbackPos}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM feedback ${domainClauseFeedbackNeg}`, params),
     ]);
 
     // Recent chats
@@ -134,6 +148,15 @@ exports.getAllChats = async (req, res) => {
     const conditions = [];
     const params     = [];
     let   p          = 1;
+
+    // Add Tenant Isolation (Multi-tenant security)
+    const isSuperAdmin = req.agent.role === 'super_admin' || req.agent.email === 'admin@demo.com';
+    const agentWebsiteDomain = !isSuperAdmin ? req.agent.website_domain : null;
+
+    if (agentWebsiteDomain) {
+      conditions.push(`c.client_domain = $${p++}`);
+      params.push(`http://${agentWebsiteDomain}`);
+    }
 
     if (status && status !== 'all') {
       conditions.push(`c.status = $${p++}`);
@@ -281,9 +304,11 @@ exports.unassignChat = async (req, res) => {
 
     if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Chat not found' });
 
-    if (global.io) {
-      global.io.to('admin-room').emit('chat-assigned', { chatId, agentName: null });
-    }
+      if (global.io) {
+        global.io.to('admin-room').emit('chat-assigned', { chatId, agentName: null });
+        // Notify the widget that the chat status is back to 'active'
+        global.io.to(`chat_${chatId}`).emit('chat-status-changed', { chatId, status: 'active' });
+      }
     res.status(200).json({ success: true, chat: result.rows[0] });
   } catch (error) {
     logger.error('Unassign chat error:', error.message);
@@ -343,15 +368,47 @@ exports.replyToChat = async (req, res) => {
     
     if (!content?.trim()) return res.status(400).json({ success: false, error: 'Message content required' });
 
+    let assignId = agent?.id || null;
+    let clientDomain = 'http://localhost:8000'; // fallback
+    
+    try {
+        const chatRes = await pool.query('SELECT client_domain FROM chats WHERE id = $1', [chatId]);
+        if (chatRes.rows.length > 0 && chatRes.rows[0].client_domain) {
+            clientDomain = chatRes.rows[0].client_domain;
+        }
+    } catch (e) {
+        logger.warn('Could not fetch client_domain for chat');
+    }
+
+    if (assignId) {
+      try {
+        // Sync agent to users table to satisfy chats_assigned_to_fkey foreign key constraint
+        await pool.query(`
+          INSERT INTO users (id, name, client_domain) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING
+        `, [assignId, agent?.name || 'Admin', clientDomain]);
+        
+        // Sync agent to agents table just in case other logic relies on it
+        try {
+          await pool.query(`
+            INSERT INTO agents (id, name, email, role) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING
+          `, [assignId, agent?.name || 'Admin', agent?.email || `${assignId}@KnowBridge.com`, agent?.role || 'agent']);
+        } catch (agentErr) {
+          logger.warn(`Agent upsert note: ${agentErr.message}`);
+        }
+      } catch (err) {
+        logger.error(`Database sync error for agent ${assignId}: ${err.message}`);
+      }
+    }
+
     const result = await pool.query(`
       INSERT INTO messages (chat_id, sender_type, sender_id, content, created_at)
       VALUES ($1, 'agent', $2, $3, NOW()) RETURNING *
-    `, [chatId, agent?.id || null, content.trim()]);
+    `, [chatId, assignId, content.trim()]);
 
     // Auto-assign to the agent and mark as active so AI stops responding
     await pool.query(`
       UPDATE chats SET assigned_to = COALESCE(assigned_to, $1), status = 'active', updated_at = NOW() WHERE id = $2
-    `, [agent?.id || null, chatId]);
+    `, [assignId, chatId]);
 
     const message = { ...result.rows[0], agent_name: agent?.name || 'Agent' };
 
@@ -408,7 +465,7 @@ exports.getAgentStats = async (req, res) => {
 
 exports.createAgent = async (req, res) => {
   try {
-    const { name, email, password, role = 'agent' } = req.body;
+    const { name, email, password, role = 'agent', websiteDomain } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, error: 'Name, email and password required' });
     }
@@ -418,12 +475,23 @@ exports.createAgent = async (req, res) => {
     const existing = await pool.query('SELECT id FROM agents WHERE email = $1', [email]);
     if (existing.rows[0]) return res.status(400).json({ success: false, error: 'Email already exists' });
 
+    let finalDomain = null;
+    if (websiteDomain) {
+      try {
+        finalDomain = websiteDomain.replace(/^https?:\/\//, '').split('/')[0];
+      } catch (e) {
+        finalDomain = websiteDomain;
+      }
+    } else {
+      finalDomain = email.split('@')[1];
+    }
+
     const hash   = await bcrypt.hash(password, 10);
     const result = await pool.query(`
-      INSERT INTO agents (name, email, password_hash, role, status, is_available, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, 'online', true, NOW(), NOW())
-      RETURNING id, name, email, role, status, is_available, created_at
-    `, [name, email, hash, role]);
+      INSERT INTO agents (name, email, password_hash, role, status, is_available, website_domain, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, 'online', true, $5, NOW(), NOW())
+      RETURNING id, name, email, role, website_domain, status, is_available, created_at
+    `, [name, email, hash, role, finalDomain]);
 
     res.status(201).json({ success: true, agent: result.rows[0], message: 'Agent created successfully' });
   } catch (error) {
@@ -552,13 +620,26 @@ exports.getReviews = async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const conditions = []; const params = []; let p = 1;
+    
+    // Add Tenant Isolation (Multi-tenant security)
+    // Force super_admin for admin@demo.com in case of stale JWTs
+    const isSuperAdmin = req.agent.role === 'super_admin' || req.agent.email === 'admin@demo.com';
+    const agentWebsiteDomain = !isSuperAdmin ? req.agent.website_domain : null;
+
+    if (agentWebsiteDomain) {
+      conditions.push(`c.client_domain = $${p++}`);
+      params.push(`http://${agentWebsiteDomain}`);
+    }
+
     if (rating) { conditions.push(`f.rating = $${p++}`); params.push(rating); }
     if (period === 'today')  conditions.push(`DATE(f.created_at) = CURRENT_DATE`);
     if (period === '7days')  conditions.push(`f.created_at >= NOW() - INTERVAL '7 days'`);
     if (period === '30days') conditions.push(`f.created_at >= NOW() - INTERVAL '30 days'`);
 
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-    params.push(parseInt(limit), offset);
+    
+    // We need to pass the params for the main query
+    const mainParams = [...params, parseInt(limit), offset];
 
     const result = await pool.query(`
       SELECT f.id, f.rating, f.comment, f.created_at, f.chat_id,
@@ -574,19 +655,23 @@ exports.getReviews = async (req, res) => {
       ${where}
       ORDER BY f.created_at DESC
       LIMIT $${p} OFFSET $${p + 1}
-    `, params);
+    `, mainParams);
 
     const countResult = await pool.query(`
       SELECT COUNT(*) as total,
-             COUNT(*) FILTER (WHERE rating = 'positive') as positive,
-             COUNT(*) FILTER (WHERE rating = 'negative') as negative
-      FROM feedback
-    `);
+             COUNT(*) FILTER (WHERE f.rating = 'positive') as positive,
+             COUNT(*) FILTER (WHERE f.rating = 'negative') as negative
+      FROM feedback f
+      LEFT JOIN chats c ON f.chat_id = c.id
+      ${where}
+    `, params);
 
     const c    = countResult.rows[0];
     const total    = parseInt(c.total)    || 0;
     const positive = parseInt(c.positive) || 0;
     const negative = parseInt(c.negative) || 0;
+
+    logger.info(`[getReviews] Returned ${result.rows.length} reviews. Stats: ${total} total, ${positive} pos, ${negative} neg. user: ${req.agent.email}`);
 
     res.status(200).json({
       success: true,

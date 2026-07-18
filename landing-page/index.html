@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KnowBridge AI - Intelligent Support Automation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.1/feather.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-text {
+            background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .hero-bg {
+            position: absolute;
+            top: -20%;
+            left: -10%;
+            width: 120%;
+            height: 120%;
+            background: radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.08) 0%, rgba(255, 255, 255, 0) 50%);
+            z-index: -1;
+            pointer-events: none;
+        }
+        .code-block {
+            background-color: #0f172a;
+            color: #38bdf8;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 900: '#1e3a8a' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased overflow-x-hidden relative">
+
+    <div class="hero-bg"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glass-panel shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex-shrink-0 flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl">K</div>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">KnowBridge</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#features" class="text-slate-600 hover:text-brand-600 font-medium transition-colors">Features</a>
+                    <a href="#how-it-works" class="text-slate-600 hover:text-brand-600 font-medium transition-colors">How it Works</a>
+                    <a href="#integration" class="text-slate-600 hover:text-brand-600 font-medium transition-colors">Integration</a>
+                    <a href="#faq" class="text-slate-600 hover:text-brand-600 font-medium transition-colors">FAQ</a>
+                </div>
+                <div class="hidden md:flex gap-4 items-center">
+                    <button onclick="document.getElementById('auth-modal').classList.remove('hidden')" id="login-btn" class="text-slate-600 hover:text-brand-600 font-medium transition-colors">
+                        Login
+                    </button>
+                    <button onclick="logout()" id="logout-btn" class="hidden text-slate-600 hover:text-red-600 font-medium transition-colors">
+                        Logout
+                    </button>
+                    <a href="#integration" class="bg-slate-900 text-white px-5 py-2.5 rounded-full font-medium hover:bg-slate-800 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200">
+                        Get Started
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 font-medium text-sm mb-8 animate-bounce">
+            <i data-feather="zap" class="w-4 h-4"></i>
+            Now with advanced AI RAG capabilities
+        </div>
+        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
+            Automate Support with <br/>
+            <span class="gradient-text">Intelligent Context</span>
+        </h1>
+        <p class="mt-4 text-xl text-slate-600 max-w-3xl mx-auto mb-10 leading-relaxed">
+            KnowBridge seamlessly blends AI-driven vector search with human agent handoffs. Train the bot on your PDFs and website, embed it with one script, and resolve 80% of tickets instantly.
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+            <a href="#integration" class="bg-brand-600 text-white px-8 py-3.5 rounded-full font-medium hover:bg-brand-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
+                View Integration Code
+            </a>
+            <a href="#features" class="bg-white text-slate-700 border border-slate-200 px-8 py-3.5 rounded-full font-medium hover:bg-slate-50 transition-all shadow-sm">
+                Explore Features
+            </a>
+        </div>
+        
+        <!-- Dashboard Mockup -->
+        <div class="mt-20 relative max-w-5xl mx-auto">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-50 via-transparent to-transparent z-10 top-1/2"></div>
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition hover:scale-[1.02] duration-500">
+                <div class="bg-slate-100 border-b border-slate-200 px-4 py-3 flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                    <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                </div>
+                <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop" alt="Dashboard Preview" class="w-full h-auto opacity-90 object-cover max-h-[500px]" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-24 bg-white relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-brand-600 font-semibold tracking-wide uppercase text-sm mb-2">Powerful Features</h2>
+                <h3 class="text-3xl md:text-4xl font-bold text-slate-900">Everything you need to scale support</h3>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="p-8 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="w-12 h-12 bg-blue-100 text-brand-600 rounded-xl flex items-center justify-center mb-6">
+                        <i data-feather="database"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-slate-900 mb-3">AI Knowledge Base (RAG)</h4>
+                    <p class="text-slate-600 leading-relaxed">
+                        Upload PDFs or paste raw text. Documents are intelligently chunked and stored as vector embeddings using `pgvector` for hyper-accurate retrieval.
+                    </p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="p-8 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-6">
+                        <i data-feather="globe"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-slate-900 mb-3">Intelligent Web Crawler</h4>
+                    <p class="text-slate-600 leading-relaxed">
+                        Automatically crawl and scrape pages from your base URL. Keep your AI trained on your latest website content without manual uploads.
+                    </p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="p-8 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mb-6">
+                        <i data-feather="users"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-slate-900 mb-3">Seamless Agent Handoff</h4>
+                    <p class="text-slate-600 leading-relaxed">
+                        When the AI can't answer, chats escalate directly to a human agent via real-time Socket.IO routing with full conversation history preserved.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it Works -->
+    <section id="how-it-works" class="py-24 bg-slate-50 border-t border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h3 class="text-3xl md:text-4xl font-bold text-slate-900">How it works in 3 easy steps</h3>
+            </div>
+            
+            <div class="flex flex-col md:flex-row justify-center items-start gap-12 relative">
+                <!-- Line connector -->
+                <div class="hidden md:block absolute top-8 left-[10%] right-[10%] h-0.5 bg-slate-200 z-0"></div>
+                
+                <!-- Step 1 -->
+                <div class="relative z-10 flex-1 text-center group">
+                    <div class="w-16 h-16 bg-white border-4 border-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-md group-hover:border-brand-500 transition-colors">
+                        <span class="text-xl font-bold text-slate-900">1</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-slate-900 mb-2">Train the AI</h4>
+                    <p class="text-slate-600">Upload your docs via the dashboard or trigger the website crawler.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="relative z-10 flex-1 text-center group">
+                    <div class="w-16 h-16 bg-white border-4 border-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-md group-hover:border-brand-500 transition-colors">
+                        <span class="text-xl font-bold text-slate-900">2</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-slate-900 mb-2">Embed Snippet</h4>
+                    <p class="text-slate-600">Copy the single JavaScript snippet and paste it into your website.</p>
+                </div>
+                <!-- Step 3 -->
+                <div class="relative z-10 flex-1 text-center group">
+                    <div class="w-16 h-16 bg-white border-4 border-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-md group-hover:border-brand-500 transition-colors">
+                        <span class="text-xl font-bold text-slate-900">3</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-slate-900 mb-2">Automate Support</h4>
+                    <p class="text-slate-600">The widget resolves user queries instantly and escalates when necessary.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Integration Example -->
+    <section id="integration" class="py-24 bg-slate-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col lg:flex-row items-center gap-16">
+                <div class="flex-1">
+                    <h2 class="text-brand-500 font-semibold tracking-wide uppercase text-sm mb-2">Effortless Integration</h2>
+                    <h3 class="text-3xl md:text-4xl font-bold mb-6">Install in less than 60 seconds</h3>
+                    <p class="text-slate-300 text-lg mb-8 leading-relaxed">
+                        No complex SDKs, no dependency hell. Just drop a single script tag into the `<head>` or `<body>` of your website, and the chatbot widget automatically initializes and binds to your backend knowledge base.
+                    </p>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center gap-3 text-slate-300">
+                            <i data-feather="check-circle" class="text-emerald-400 w-5 h-5"></i> Works with WordPress, Shopify, React, & Vanilla HTML
+                        </li>
+                        <li class="flex items-center gap-3 text-slate-300">
+                            <i data-feather="check-circle" class="text-emerald-400 w-5 h-5"></i> Zero impact on your initial page load speed
+                        </li>
+                        <li class="flex items-center gap-3 text-slate-300">
+                            <i data-feather="check-circle" class="text-emerald-400 w-5 h-5"></i> Highly customizable via dashboard settings
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="flex-1 w-full">
+                    <div class="rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-[#0f172a]">
+                        <div class="flex items-center px-4 py-3 bg-slate-800 border-b border-slate-700 gap-2">
+                            <div class="w-3 h-3 rounded-full bg-slate-600"></div>
+                            <div class="w-3 h-3 rounded-full bg-slate-600"></div>
+                            <div class="w-3 h-3 rounded-full bg-slate-600"></div>
+                            <span class="ml-4 text-xs font-mono text-slate-400">index.html</span>
+                        </div>
+                        <div class="p-6 overflow-x-auto text-sm leading-relaxed code-block">
+<pre><code><span class="text-slate-400">&lt;!-- 1. Add the widget container --&gt;</span>
+<span class="text-pink-400">&lt;div</span> <span class="text-green-300">id</span>=<span class="text-yellow-300">"KnowBridge-chat-root"</span><span class="text-pink-400">&gt;&lt;/div&gt;</span>
+
+<span class="text-slate-400">&lt;!-- 2. Load the script --&gt;</span>
+<span class="text-pink-400">&lt;script</span> <span class="text-green-300">src</span>=<span class="text-yellow-300">"https://your-domain.com/chat-widget.bundle.js"</span><span class="text-pink-400">&gt;&lt;/script&gt;</span>
+
+<span class="text-slate-400">&lt;!-- 3. Initialize it --&gt;</span>
+<span class="text-pink-400">&lt;script&gt;</span>
+  <span class="text-blue-300">window</span>.KnowBridgeChat.init({
+    <span class="text-green-300">apiUrl</span>: <span class="text-yellow-300">'https://api.your-domain.com'</span>
+  });
+<span class="text-pink-400">&lt;/script&gt;</span></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="py-24 bg-white">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h3 class="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Frequently Asked Questions</h3>
+                <p class="text-slate-600">Everything you need to know about the platform.</p>
+            </div>
+            
+            <div class="space-y-4" x-data="{ active: null }">
+                <!-- FAQ 1 -->
+                <div class="border border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                    <button @click="active !== 1 ? active = 1 : active = null" class="flex justify-between items-center w-full p-6 text-left focus:outline-none">
+                        <span class="font-semibold text-slate-900">What LLM does the chatbot use?</span>
+                        <i data-feather="chevron-down" class="w-5 h-5 text-slate-500 transform transition-transform" :class="{ 'rotate-180': active === 1 }"></i>
+                    </button>
+                    <div x-show="active === 1" x-collapse x-cloak class="px-6 pb-6 text-slate-600">
+                        We leverage OpenAI's powerful embedding models (`text-embedding-3-small`) to generate vectors, combined with models like `gpt-3.5-turbo` or `gpt-4o` to construct highly accurate, context-aware answers directly from your knowledge base.
+                    </div>
+                </div>
+                <!-- FAQ 2 -->
+                <div class="border border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                    <button @click="active !== 2 ? active = 2 : active = null" class="flex justify-between items-center w-full p-6 text-left focus:outline-none">
+                        <span class="font-semibold text-slate-900">How do human agents take over?</span>
+                        <i data-feather="chevron-down" class="w-5 h-5 text-slate-500 transform transition-transform" :class="{ 'rotate-180': active === 2 }"></i>
+                    </button>
+                    <div x-show="active === 2" x-collapse x-cloak class="px-6 pb-6 text-slate-600">
+                        When the AI cannot find a confident answer in the knowledge base, or the user explicitly requests a human, the session is seamlessly escalated. An agent gets a real-time notification on the Admin Dashboard via Socket.IO and takes over exactly where the AI left off.
+                    </div>
+                </div>
+                <!-- FAQ 3 -->
+                <div class="border border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                    <button @click="active !== 3 ? active = 3 : active = null" class="flex justify-between items-center w-full p-6 text-left focus:outline-none">
+                        <span class="font-semibold text-slate-900">Do I need to host the widget separately?</span>
+                        <i data-feather="chevron-down" class="w-5 h-5 text-slate-500 transform transition-transform" :class="{ 'rotate-180': active === 3 }"></i>
+                    </button>
+                    <div x-show="active === 3" x-collapse x-cloak class="px-6 pb-6 text-slate-600">
+                        No! You can serve the compiled `chat-widget.bundle.js` straight out of your backend server, or upload it to any CDN. It embeds effortlessly anywhere HTML is supported.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 text-slate-400 py-12 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center gap-2 mb-4 md:mb-0">
+                <div class="w-6 h-6 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">K</div>
+                <span class="font-semibold text-slate-300">KnowBridge</span>
+            </div>
+            <p class="text-sm">© 2026 KnowBridge Platform. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Initialize Feather Icons -->
+    <script>
+        feather.replace();
+    </script>
+
+    <!-- ========================================== -->
+    <!-- AUTHENTICATION MODAL                       -->
+    <!-- ========================================== -->
+    <div id="auth-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4" x-data="{ mode: 'login' }">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-slate-900" x-text="mode === 'login' ? 'Welcome Back' : 'Create Account'"></h3>
+                <button onclick="document.getElementById('auth-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                    <i data-feather="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div id="auth-error" class="hidden mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200"></div>
+            <form id="auth-form" class="space-y-4">
+                <div x-show="mode === 'signup'">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                    <input type="text" id="auth-name" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" id="auth-email" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="auth-password" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all">
+                </div>
+                <button type="submit" id="auth-submit" class="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 transition-colors">
+                    <span x-text="mode === 'login' ? 'Sign In' : 'Sign Up'"></span>
+                </button>
+            </form>
+            <div class="mt-6 text-center text-sm text-slate-600">
+                <span x-show="mode === 'login'">Don't have an account? <button @click="mode = 'signup'" class="text-brand-600 font-medium hover:underline">Sign up</button></span>
+                <span x-show="mode === 'signup'">Already have an account? <button @click="mode = 'login'" class="text-brand-600 font-medium hover:underline">Sign in</button></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- REAL CHATBOT WIDGET INTEGRATION (DEMO)     -->
+    <!-- ========================================== -->
+    
+    <link rel="stylesheet" href="./widget/chat-widget.bundle.css" />
+    <div id="KnowBridge-chat-root"></div>
+    
+    <!-- Animated Pointer (Hidden by default, shown when logged in) -->
+    <div id="chat-pointer" class="hidden fixed bottom-24 right-24 z-[60] flex items-end animate-bounce">
+        <div class="bg-brand-600 text-white px-4 py-2 rounded-2xl shadow-xl font-medium text-sm flex items-center gap-2">
+            Try bot with Admin Dashboard
+            <i data-feather="arrow-down-right" class="w-4 h-4"></i>
+        </div>
+    </div>
+    
+    <script src="./widget/chat-widget.bundle.js"></script>
+    <script>
+        // Auth Logic
+        const API_URL = 'http://localhost:5000';
+        
+        function checkAuthState() {
+            const token = localStorage.getItem('demo_auth_token');
+            const userStr = localStorage.getItem('demo_auth_user');
+            if (token && userStr) {
+                document.getElementById('login-btn').classList.add('hidden');
+                document.getElementById('logout-btn').classList.remove('hidden');
+                document.getElementById('chat-pointer').classList.remove('hidden');
+                return { token, user: JSON.parse(userStr) };
+            }
+            document.getElementById('login-btn').classList.remove('hidden');
+            document.getElementById('logout-btn').classList.add('hidden');
+            document.getElementById('chat-pointer').classList.add('hidden');
+            return null;
+        }
+
+        function logout() {
+            localStorage.removeItem('demo_auth_token');
+            localStorage.removeItem('demo_auth_user');
+            window.location.reload();
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('auth-submit');
+            const errorDiv = document.getElementById('auth-error');
+            // Since Alpine 3 doesn't expose __x.$data directly, we'll check the text of the button
+            const mode = submitBtn.innerText.includes('Sign In') ? 'login' : 'signup';
+            
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const name = document.getElementById('auth-name').value;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Please wait...';
+            errorDiv.classList.add('hidden');
+
+            try {
+                const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+                const payload = mode === 'login' ? { email, password } : { name, email, password };
+                
+                const res = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    localStorage.setItem('demo_auth_token', data.token);
+                    localStorage.setItem('demo_auth_user', JSON.stringify(data.agent));
+                    window.location.reload();
+                } else {
+                    errorDiv.innerText = data.error || 'Authentication failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.innerText = 'Network error. Make sure backend is running.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = mode === 'login' ? 'Sign In' : 'Sign Up';
+            }
+        });
+
+        // Initialize the KnowBridge Chat Widget
+        window.addEventListener('load', () => {
+            try {
+                // Determine authentication state safely
+                const authData = checkAuthState();
+                
+                if (window.KnowBridgeChat) {
+                    const config = {
+                        apiUrl: API_URL,
+                        theme: 'blue',
+                        position: 'bottom-right'
+                    };
+                    
+                    // If logged in, pass the user details to the widget!
+                    if (authData) {
+                        config.user = {
+                            id: authData.user.id,
+                            name: authData.user.name,
+                            email: authData.user.email
+                        };
+                        config.authToken = authData.token;
+                    }
+
+                    // Initialize and mount the widget
+                    window.KnowBridgeChat.init(config);
+                    setTimeout(() => window.KnowBridgeChat.open(), 500);
+                } else {
+                    console.error("KnowBridge: Widget script failed to load or attach to window.");
+                }
+            } catch (err) {
+                console.error("KnowBridge: Error during initialization:", err);
+            }
+        });
+    </script>
+</body>
+</html>
