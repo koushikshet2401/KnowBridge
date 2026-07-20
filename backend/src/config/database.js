@@ -53,7 +53,8 @@ const pool = new Pool({
 // Test database connection on startup
 pool.connect((err, client, release) => {
   if (err) {
-    logger.error('❌ Database connection failed:', err.message);
+    console.error(err);
+    logger.error('❌ Database connection failed:', err);
     logger.error('Please ensure PostgreSQL is running and credentials are correct');
     process.exit(1);
   }
