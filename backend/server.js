@@ -23,7 +23,7 @@ const pool = require('./src/config/database');
 require('dotenv').config();
 
 // Validate critical environment variables
-const requiredEnvVars = ['PORT', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'LARAVEL_API_URL'];
+const requiredEnvVars = ['PORT', 'DB_HOST', 'DB_PORT', 'DB_NAME'];
 const missingVars = requiredEnvVars.filter(v => !process.env[v]);
 
 if (missingVars.length > 0) {
@@ -41,7 +41,7 @@ const server = http.createServer(app);
 // ----------------
 const io = socketIo(server, {
   cors: {
-    origin: process.env.SOCKET_IO_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000'],
+    origin: process.env.SOCKET_IO_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'https://knowbridge-dashboard.onrender.com'],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -58,8 +58,8 @@ app.set('io', io);
 
 // CORS
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000'],
-  credentials: process.env.CORS_CREDENTIALS === 'true',
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'https://knowbridge-dashboard.onrender.com'],
+  credentials: process.env.CORS_CREDENTIALS !== 'false',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-KnowBridge-Token', 'X-Student-Token', 'X-Student-Id', 'X-Client-Domain']
 }));
@@ -208,7 +208,8 @@ server.listen(PORT, () => {
   logger.info(`📍 Server running on: http://localhost:${PORT}`);
   logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`💾 Database: ${process.env.DB_NAME} @ ${process.env.DB_HOST}:${process.env.DB_PORT}`);
-  logger.info(`🔗 Laravel API: ${process.env.LARAVEL_API_URL}`);
+  if (process.env.LARAVEL_API_URL) logger.info(`🔗 Laravel API: ${process.env.LARAVEL_API_URL}`);
+  else logger.info(`🔗 Laravel API: Disabled (Standalone mode)`);
   logger.info(`🔌 Socket.IO: Enabled`);
   logger.info('='.repeat(60));
   logger.info('Available endpoints:');
