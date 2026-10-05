@@ -27,6 +27,7 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
   logger.info(`📊 Fetching dashboard stats for ${req.agent.email} (${agentRole})`);
 
   try {
+    const tenantId = req.agent.tenant_id;
     // Execute ALL queries in parallel using Promise.all
     const [
       totalChatsResult,
@@ -41,33 +42,33 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
     ] = await Promise.all([
       // Total chats
       canViewAll
-        ? pool.query('SELECT COUNT(*) as count FROM chats')
-        : pool.query('SELECT COUNT(*) as count FROM chats WHERE assigned_agent_id = $1', [agentId]),
+        ? pool.query('SELECT COUNT(*) as count FROM chats WHERE tenant_id = $1', [tenantId])
+        : pool.query('SELECT COUNT(*) as count FROM chats WHERE tenant_id = $1 AND assigned_agent_id = $2', [tenantId, agentId]),
 
       // Active chats
       canViewAll
-        ? pool.query('SELECT COUNT(*) as count FROM chats WHERE status = $1', ['active'])
-        : pool.query('SELECT COUNT(*) as count FROM chats WHERE status = $1 AND assigned_agent_id = $2', ['active', agentId]),
+        ? pool.query('SELECT COUNT(*) as count FROM chats WHERE tenant_id = $1 AND status = $2', [tenantId, 'active'])
+        : pool.query('SELECT COUNT(*) as count FROM chats WHERE tenant_id = $1 AND status = $2 AND assigned_agent_id = $3', [tenantId, 'active', agentId]),
 
       // Pending chats
-      pool.query('SELECT COUNT(*) as count FROM chats WHERE status = $1', ['pending']),
+      pool.query('SELECT COUNT(*) as count FROM chats WHERE tenant_id = $1 AND status = $2', [tenantId, 'pending']),
 
       // Resolved today
       canViewAll
         ? pool.query(`
             SELECT COUNT(*) as count FROM chats 
-            WHERE status IN ('resolved', 'closed') 
+            WHERE tenant_id = $1 AND status IN ('resolved', 'closed') 
             AND DATE(updated_at) = CURRENT_DATE
-          `)
+          `, [tenantId])
         : pool.query(`
             SELECT COUNT(*) as count FROM chats 
-            WHERE status IN ('resolved', 'closed') 
+            WHERE tenant_id = $1 AND status IN ('resolved', 'closed') 
             AND DATE(updated_at) = CURRENT_DATE 
-            AND assigned_agent_id = $1
-          `, [agentId]),
+            AND assigned_agent_id = $2
+          `, [tenantId, agentId]),
 
       // My active chats (for agents)
-      pool.query('SELECT COUNT(*) as count FROM chats WHERE assigned_agent_id = $1 AND status = $2', [agentId, 'active']),
+      pool.query('SELECT COUNT(*) as count FROM chats WHERE tenant_id = $1 AND assigned_agent_id = $2 AND status = $3', [tenantId, agentId, 'active']),
 
       // Average response time (first agent response)
       pool.query(`
@@ -76,27 +77,27 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
         INNER JOIN (
           SELECT chat_id, MIN(created_at) as created_at
           FROM messages
-          WHERE sender_type = 'agent'
+          WHERE tenant_id = $1 AND sender_type = 'agent'
           GROUP BY chat_id
         ) m ON c.id = m.chat_id
-        WHERE c.created_at >= NOW() - INTERVAL '7 days'
-      `),
+        WHERE c.tenant_id = $1 AND c.created_at >= NOW() - INTERVAL '7 days'
+      `, [tenantId]),
 
       // Average resolution time
       pool.query(`
         SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) as avg_seconds
         FROM chats
-        WHERE status IN ('resolved', 'closed')
+        WHERE tenant_id = $1 AND status IN ('resolved', 'closed')
         AND updated_at >= NOW() - INTERVAL '7 days'
-      `),
+      `, [tenantId]),
 
       // Customer satisfaction (average rating)
       pool.query(`
         SELECT AVG(rating) as avg_rating, COUNT(*) as total_ratings
         FROM chats
-        WHERE rating IS NOT NULL
+        WHERE tenant_id = $1 AND rating IS NOT NULL
         AND updated_at >= NOW() - INTERVAL '30 days'
-      `),
+      `, [tenantId]),
 
       // Recent chats for activity feed
       canViewAll
@@ -104,17 +105,18 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
             SELECT c.id, u.name as user_name, u.email as user_email, c.status, c.created_at, c.updated_at
             FROM chats c
             LEFT JOIN users u ON c.user_id = u.id
+            WHERE c.tenant_id = $1
             ORDER BY c.updated_at DESC
             LIMIT 10
-          `)
+          `, [tenantId])
         : pool.query(`
             SELECT c.id, u.name as user_name, u.email as user_email, c.status, c.created_at, c.updated_at
             FROM chats c
             LEFT JOIN users u ON c.user_id = u.id
-            WHERE c.assigned_agent_id = $1
+            WHERE c.tenant_id = $1 AND c.assigned_agent_id = $2
             ORDER BY c.updated_at DESC
             LIMIT 10
-          `, [agentId])
+          `, [tenantId, agentId])
     ]);
 
     // Format response time (seconds to human readable)
@@ -193,34 +195,35 @@ exports.getChartData = asyncHandler(async (req, res) => {
 
   const interval = timeRanges[period] || '7 days';
 
+  const tenantId = req.agent.tenant_id;
   // Execute all chart queries in parallel
   const [chatVolumeData, resolutionData, satisfactionData] = await Promise.all([
     // Chat volume over time
     pool.query(`
       SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as count
       FROM chats
-      WHERE created_at >= NOW() - INTERVAL '${interval}'
+      WHERE tenant_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
       GROUP BY date
       ORDER BY date
-    `),
+    `, [tenantId, parseInt(interval)]),
 
     // Resolution status breakdown
     pool.query(`
       SELECT status, COUNT(*) as count
       FROM chats
-      WHERE created_at >= NOW() - INTERVAL '${interval}'
+      WHERE tenant_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
       GROUP BY status
-    `),
+    `, [tenantId, parseInt(interval)]),
 
     // Satisfaction trend
     pool.query(`
       SELECT DATE_TRUNC('day', updated_at) as date, AVG(rating) as avg_rating
       FROM chats
-      WHERE rating IS NOT NULL
-      AND updated_at >= NOW() - INTERVAL '${interval}'
+      WHERE tenant_id = $1 AND rating IS NOT NULL
+      AND updated_at >= NOW() - ($2 || ' days')::interval
       GROUP BY date
       ORDER BY date
-    `)
+    `, [tenantId, parseInt(interval)])
   ]);
 
   res.json({

@@ -27,18 +27,17 @@ const ChatDetail = () => {
   }, [chatId])
 
   useEffect(() => {
-    if (chat?.client_domain) {
-      fetchDomainChats(chat.client_domain)
+    if (chat) {
+      fetchAllTenantChats()
     }
-  }, [chat?.client_domain])
+  }, [chat?.id]) // trigger once chat is loaded
 
-  const fetchDomainChats = async (domain) => {
+  const fetchAllTenantChats = async () => {
     try {
-      const response = await api.get(`/admin/chats?search=${encodeURIComponent(domain)}`)
-      const strictlyDomain = (response.data.chats || []).filter(c => c.client_domain === domain)
-      setDomainChats(strictlyDomain)
+      const response = await api.get(`/admin/chats`)
+      setDomainChats(response.data.chats || [])
     } catch (error) {
-      console.error('Failed to fetch domain chats:', error)
+      console.error('Failed to fetch tenant chats:', error)
     }
   }
 
@@ -198,7 +197,7 @@ const ChatDetail = () => {
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col hidden lg:flex shadow-sm z-10">
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Domain: {chat?.client_domain || 'Unknown'}
+            Active Workspace Chats
           </h2>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">

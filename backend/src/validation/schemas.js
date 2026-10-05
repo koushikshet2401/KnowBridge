@@ -27,7 +27,8 @@ const chatSchemas = {
         .default('General Support'),
       user_id: z.string().optional(),
       user_name: z.string().max(200).optional(),
-      user_email: z.string().email('Invalid email').optional()
+      user_email: z.string().email('Invalid email').or(z.literal('')).optional(),
+      tenant_id: z.string().optional()
     })
   }),
 
@@ -40,7 +41,8 @@ const chatSchemas = {
         .max(1000, 'Message too long'),
       sender_type: z.enum(['user', 'agent', 'ai'])
         .optional()
-        .default('user')
+        .default('user'),
+      tenant_id: z.string().optional()
     })
   }),
 

@@ -13,9 +13,14 @@ const express = require('express');
 const router = express.Router();
 const { asyncHandler } = require('../utils/asyncHandler');
 const { chatMessageLimiter } = require('../middleware/rateLimiter');
+const { validateTenantOrigin } = require('../middleware/tenant');
 const OpenAI = require('openai');
 const pool = require('../config/database');
 const logger = require('../utils/logger');
+
+// Security: ALL requests to AI endpoints must validate their Origin
+// against the registered tenant domain to prevent cross-tenant AI interrogation.
+router.use(validateTenantOrigin);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -24,8 +29,13 @@ const openai = new OpenAI({
 /**
  * Helper: Search KB and return context string
  */
-async function getKBContext(query, threshold = 0.25, limit = 4) {
+async function getKBContext(query, tenantId, threshold = 0.25, limit = 4) {
   try {
+    if (!tenantId) {
+       logger.error('KB Context Retrieval Error: tenantId is missing!');
+       return '';
+    }
+
     // 1. Vector Search
     const embeddingResponse = await openai.embeddings.create({
       model: 'text-embedding-3-small',
@@ -34,16 +44,18 @@ async function getKBContext(query, threshold = 0.25, limit = 4) {
 
     const queryEmbedding = embeddingResponse.data[0].embedding;
 
+    // Join document_chunks with documents to get the title, filter by tenant_id
     const vectorResult = await pool.query(`
       SELECT 
-        title,
-        content,
-        1 - (embedding <=> $1::vector) as similarity
-      FROM kb_articles
-      WHERE 1 - (embedding <=> $1::vector) > $2
+        d.title,
+        dc.content,
+        1 - (dc.embedding <=> $1::vector) as similarity
+      FROM document_chunks dc
+      JOIN documents d ON dc.document_id = d.id
+      WHERE dc.tenant_id = $4 AND 1 - (dc.embedding <=> $1::vector) > $2
       ORDER BY similarity DESC
       LIMIT $3
-    `, [JSON.stringify(queryEmbedding), threshold, limit]);
+    `, [JSON.stringify(queryEmbedding), threshold, limit, tenantId]);
 
     let results = vectorResult.rows;
 
@@ -52,16 +64,17 @@ async function getKBContext(query, threshold = 0.25, limit = 4) {
       const keywords = query.split(' ').filter(w => w.length > 3).map(w => `%${w}%`);
       if (keywords.length > 0) {
         const keywordResult = await pool.query(`
-          SELECT title, content, 0.5 as similarity
-          FROM kb_articles
-          WHERE title ILIKE ANY($1) OR content ILIKE ANY($1)
-          LIMIT $2
-        `, [keywords, limit]);
+          SELECT d.title, dc.content, 0.5 as similarity
+          FROM document_chunks dc
+          JOIN documents d ON dc.document_id = d.id
+          WHERE dc.tenant_id = $2 AND (d.title ILIKE ANY($1) OR dc.content ILIKE ANY($1))
+          LIMIT $3
+        `, [keywords, tenantId, limit]);
         
         // Merge results, avoiding duplicates
-        const existingTitles = new Set(results.map(r => r.title));
+        const existingContent = new Set(results.map(r => r.content));
         keywordResult.rows.forEach(r => {
-          if (!existingTitles.has(r.title)) {
+          if (!existingContent.has(r.content)) {
             results.push(r);
           }
         });
@@ -125,7 +138,9 @@ router.post('/ai/query',
     }
 
     // Get Context
-    const context = await getKBContext(question);
+    // Extract tenant_id from request body (sent by chatController usually, or via middleware)
+    const tenantId = req.body.tenant_id || req.tenant_id;
+    const context = await getKBContext(question, tenantId);
 
     if (!context) {
       logger.warn(`No KB context found for question: "${question}"`);
@@ -245,11 +260,12 @@ Always be friendly and professional. If the user asks something irrelevant, guid
 router.post('/knowledge-base/query',
   chatMessageLimiter,
   asyncHandler(async (req, res) => {
-    const { query, limit = 5 } = req.body;
+    const { query, limit = 5, tenant_id } = req.body;
+    const tenantId = tenant_id || req.tenant_id;
 
     try {
       // Lower threshold for helpful articles too
-      const context = await getKBContext(query, 0.2, limit);
+      const context = await getKBContext(query, tenantId, 0.2, limit);
       if (!context) return res.json({ success: true, results: [], query });
 
       // Parse context back into list for widget

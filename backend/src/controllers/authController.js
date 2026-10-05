@@ -2,6 +2,11 @@ const jwt = require('jsonwebtoken');
 const Agent = require('../models/Agent');
 const logger = require('../utils/logger');
 
+if (!process.env.JWT_SECRET) {
+  logger.error('CRITICAL: JWT_SECRET environment variable is missing.');
+  if (process.env.NODE_ENV === 'production') process.exit(1);
+}
+
 /**
  * Login agent/admin
  */
@@ -43,9 +48,9 @@ exports.login = async (req, res) => {
         id: agent.id, 
         role: agent.role,
         email: agent.email,
-        website_domain: agent.website_domain
+        tenant_id: agent.tenant_id
       },
-      process.env.JWT_SECRET || 'fallback_secret',
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
@@ -62,7 +67,7 @@ exports.login = async (req, res) => {
         name: agent.name,
         email: agent.email,
         role: agent.role,
-        website_domain: agent.website_domain
+        tenant_id: agent.tenant_id
       }
     });
 
@@ -106,12 +111,13 @@ exports.getMe = async (req, res) => {
  */
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { companyName, name, email, password } = req.body;
+    const pool = require('../config/database');
 
-    if (!name || !email || !password) {
+    if (!companyName || !name || !email || !password) {
       return res.status(400).json({
         success: false,
-        error: 'Please provide name, email and password'
+        error: 'Please provide companyName, name, email and password'
       });
     }
 
@@ -124,12 +130,20 @@ exports.signup = async (req, res) => {
       });
     }
 
-    // Create super_admin agent
+    // Create Tenant first
+    const tenantResult = await pool.query(
+      `INSERT INTO tenants (name) VALUES ($1) RETURNING id`,
+      [companyName]
+    );
+    const tenantId = tenantResult.rows[0].id;
+
+    // Create super_admin agent linked to tenant
     const agent = await Agent.create({
+      tenant_id: tenantId,
       name,
       email,
       password,
-      role: 'super_admin'
+      role: 'admin' // Better default than super_admin for SaaS tenants
     });
 
     // Generate token
@@ -138,9 +152,9 @@ exports.signup = async (req, res) => {
         id: agent.id, 
         role: agent.role,
         email: agent.email,
-        website_domain: agent.website_domain
+        tenant_id: agent.tenant_id
       },
-      process.env.JWT_SECRET || 'fallback_secret',
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
@@ -154,7 +168,7 @@ exports.signup = async (req, res) => {
         name: agent.name,
         email: agent.email,
         role: agent.role,
-        website_domain: agent.website_domain
+        tenant_id: agent.tenant_id
       }
     });
 

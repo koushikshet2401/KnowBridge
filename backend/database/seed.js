@@ -20,21 +20,40 @@ async function seedDatabase() {
       process.exit(1);
     }
 
-    // Check if admin@demo.com exists
-    const adminCheck = await pool.query('SELECT id FROM agents WHERE email = $1', ['admin@demo.com']);
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@demo.com';
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'password123';
+    
+    // Check if admin exists
+    const adminCheck = await pool.query('SELECT id FROM agents WHERE email = $1', [adminEmail]);
 
     if (adminCheck.rows.length === 0) {
-      console.log('👤 Creating default admin user (admin@demo.com)...');
-      const hashedPassword = await bcrypt.hash('password123', 10);
+      console.log(`👤 Creating default admin user (${adminEmail})...`);
+      
+      // First, find or create a default tenant
+      let tenantResult = await pool.query(`SELECT id FROM tenants ORDER BY created_at ASC LIMIT 1`);
+      let defaultTenantId;
+      
+      if (tenantResult.rows.length > 0) {
+        defaultTenantId = tenantResult.rows[0].id;
+      } else {
+        tenantResult = await pool.query(`
+          INSERT INTO tenants (name, domain) 
+          VALUES ('System Default Tenant', 'system.local') 
+          RETURNING id
+        `);
+        defaultTenantId = tenantResult.rows[0].id;
+      }
+
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
       
       await pool.query(`
-        INSERT INTO agents (name, email, password_hash, role, status, is_available)
-        VALUES ($1, $2, $3, $4, 'offline', true)
-      `, ['Super Admin', 'admin@demo.com', hashedPassword, 'super_admin']);
+        INSERT INTO agents (tenant_id, name, email, password_hash, role, status, is_available)
+        VALUES ($1, $2, $3, $4, $5, 'offline', true)
+      `, [defaultTenantId, 'Super Admin', adminEmail, hashedPassword, 'super_admin']);
       
       console.log('✅ Default admin user created successfully.');
     } else {
-      console.log('⏭️ Default admin user already exists. Skipping.');
+      console.log(`⏭️ Default admin user (${adminEmail}) already exists. Skipping.`);
     }
 
     console.log('\n🎉 Database seeding completed successfully!');

@@ -6,6 +6,7 @@ class Message {
    * Create new message
    */
   static async create({
+    tenantId,
     chatId,
     senderType,
     senderId,
@@ -17,25 +18,22 @@ class Message {
     kbSources = [],
     metadata = {},
     isInternal = false,
-    // NEW: Agent attribution fields
-    agentId = null,
-    agentName = null
+    agentId = null
   }) {
+    if (!tenantId) throw new Error('tenantId is required');
     const id = uuidv4();
     
     const result = await pool.query(
       `INSERT INTO messages (
-        id, chat_id, sender_type, sender_id, content, content_type,
-        attachments, ai_model, ai_confidence, kb_sources, metadata, is_internal,
-        agent_id, agent_name
+        id, tenant_id, chat_id, sender_type, sender_id, content, content_type,
+        attachments, ai_model, ai_confidence, kb_sources, metadata, is_internal
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
-        id, chatId, senderType, senderId, content, contentType,
+        id, tenantId, chatId, senderType, senderId, content, contentType,
         JSON.stringify(attachments), aiModel, aiConfidence,
-        JSON.stringify(kbSources), JSON.stringify(metadata), isInternal,
-        agentId, agentName
+        JSON.stringify(kbSources), JSON.stringify(metadata), isInternal
       ]
     );
     
@@ -120,15 +118,6 @@ class Message {
       fields.push(`metadata = $${paramCount++}`);
       values.push(JSON.stringify(data.metadata));
     }
-    // NEW: Allow updating agent info
-    if (data.agentId !== undefined) {
-      fields.push(`agent_id = $${paramCount++}`);
-      values.push(data.agentId);
-    }
-    if (data.agentName !== undefined) {
-      fields.push(`agent_name = $${paramCount++}`);
-      values.push(data.agentName);
-    }
 
     if (fields.length === 0) {
       return await this.findById(id);
@@ -205,16 +194,16 @@ class Message {
   }
 
   /**
-   * NEW: Get messages with agent attribution
+   * Get messages with agent attribution
    */
   static async getChatMessagesWithAgents(chatId, { includeInternal = false, limit = 100 }) {
     let internalCondition = includeInternal ? '' : 'AND m.is_internal = false';
     
     const result = await pool.query(
       `SELECT m.*,
-              COALESCE(m.agent_name, a.name) as agent_name
+              a.name as agent_name
        FROM messages m
-       LEFT JOIN users a ON m.agent_id = a.id
+       LEFT JOIN agents a ON m.sender_id = a.id AND m.sender_type = 'agent'
        WHERE m.chat_id = $1 ${internalCondition}
        ORDER BY m.created_at ASC
        LIMIT $2`,

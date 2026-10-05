@@ -41,12 +41,13 @@ const storage = multer.diskStorage({
 
 // File filter
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = (process.env.ALLOWED_FILE_TYPES || '').split(',');
+  const defaultTypes = 'application/pdf,image/jpeg,image/png,image/gif,text/plain';
+  const allowedTypes = (process.env.ALLOWED_FILE_TYPES || defaultTypes).split(',').map(t => t.trim());
   
-  if (allowedTypes.length === 0 || allowedTypes.includes(file.mimetype)) {
+  if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`File type ${file.mimetype} not allowed`), false);
+    cb(new Error(`File type ${file.mimetype} not allowed. Allowed types: ${allowedTypes.join(', ')}`), false);
   }
 };
 

@@ -172,10 +172,10 @@ class Feedback {
         COUNT(*) FILTER (WHERE rating = 'negative') as negative,
         COUNT(*) as total
       FROM feedback
-      WHERE created_at >= CURRENT_DATE - INTERVAL '${days} days'
+      WHERE created_at >= CURRENT_DATE - ($1 || ' days')::interval
       GROUP BY DATE(created_at)
       ORDER BY date ASC
-    `);
+    `, [days]);
     return result.rows;
   }
 }

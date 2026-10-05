@@ -15,38 +15,39 @@ class User {
   }
 
   /**
-   * Find user by external ID (from a specific client domain)
+   * Find user by external ID (from a specific tenant)
    */
-  static async findByExternalId(clientDomain, externalId) {
+  static async findByExternalId(tenantId, externalId) {
     const result = await pool.query(
-      'SELECT * FROM users WHERE client_domain = $1 AND external_id = $2',
-      [clientDomain, externalId]
+      'SELECT * FROM users WHERE tenant_id = $1 AND external_id = $2',
+      [tenantId, externalId]
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Find user by email inside a specific client domain
+   * Find user by email inside a specific tenant
    */
-  static async findByEmail(clientDomain, email) {
+  static async findByEmail(tenantId, email) {
     const result = await pool.query(
-      'SELECT * FROM users WHERE client_domain = $1 AND email = $2',
-      [clientDomain, email]
+      'SELECT * FROM users WHERE tenant_id = $1 AND email = $2',
+      [tenantId, email]
     );
     return result.rows[0] || null;
   }
 
   /**
-   * Create new user with client domain isolation
+   * Create new user with tenant isolation
    */
-  static async create({ clientDomain, externalId, name, email, avatarUrl = null, metadata = {} }) {
+  static async create({ tenantId, externalId, name, email, avatarUrl = null, metadata = {} }) {
+    if (!tenantId) throw new Error('tenantId is required');
     const id = uuidv4();
     
     const result = await pool.query(
-      `INSERT INTO users (id, client_domain, external_id, name, email, avatar_url, metadata)
+      `INSERT INTO users (id, tenant_id, external_id, name, email, avatar_url, metadata)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [id, clientDomain, externalId, name, email, avatarUrl, JSON.stringify(metadata)]
+      [id, tenantId, externalId, name, email, avatarUrl, JSON.stringify(metadata)]
     );
     
     return result.rows[0];
@@ -93,16 +94,17 @@ class User {
   }
 
   /**
-   * Find or create user with domain tenant safety
+   * Find or create user with tenant safety
    */
-  static async findOrCreate(clientDomain, userData) {
+  static async findOrCreate(tenantId, userData) {
+    if (!tenantId) throw new Error('tenantId is required');
     try {
       const extId = userData.externalId || userData.id || null;
       
       const result = await pool.query(
-        `INSERT INTO users (id, client_domain, external_id, name, email, avatar_url, metadata, created_at)
+        `INSERT INTO users (id, tenant_id, external_id, name, email, avatar_url, metadata, created_at)
          VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, NOW())
-         ON CONFLICT (client_domain, external_id) DO UPDATE SET 
+         ON CONFLICT (tenant_id, external_id) DO UPDATE SET 
            name = EXCLUDED.name,
            email = EXCLUDED.email,
            avatar_url = EXCLUDED.avatar_url,
@@ -110,7 +112,7 @@ class User {
            updated_at = NOW()
          RETURNING *`,
         [
-          clientDomain,
+          tenantId,
           extId,
           userData.name || 'Anonymous',
           userData.email || null,
@@ -124,7 +126,7 @@ class User {
     } catch (error) {
       const extId = userData.externalId || userData.id || null;
       if (extId) {
-        const existing = await this.findByExternalId(clientDomain, extId);
+        const existing = await this.findByExternalId(tenantId, extId);
         if (existing) return existing;
       }
       
@@ -134,18 +136,16 @@ class User {
   }
 
   /**
-   * Get all users with optional tenant filter and pagination
+   * Get all users with tenant filter and pagination
    */
-  static async getAll({ clientDomain = null, page = 1, limit = 20, search = '' }) {
+  static async getAll({ tenantId, page = 1, limit = 20, search = '' }) {
+    if (!tenantId) throw new Error('tenantId is required');
     const offset = (page - 1) * limit;
-    const conditions = [];
-    const params = [limit, offset];
-    let paramCount = 3;
-
-    if (clientDomain) {
-      conditions.push(`client_domain = $${paramCount++}`);
-      params.push(clientDomain);
-    }
+    let conditions = ['tenant_id = $1'];
+    
+    // We'll map params to SQL manually for safety
+    let params = [tenantId];
+    let paramCount = 2;
 
     if (search) {
       conditions.push(`(name ILIKE $${paramCount} OR email ILIKE $${paramCount})`);
@@ -153,17 +153,18 @@ class User {
       paramCount++;
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    params.push(limit, offset);
 
     const result = await pool.query(
       `SELECT * FROM users 
        ${whereClause}
        ORDER BY created_at DESC 
-       LIMIT $1 OFFSET $2`,
-      params.slice(0, paramCount - 1)
+       LIMIT $${paramCount} OFFSET $${paramCount + 1}`,
+      params
     );
 
-    const countParams = params.slice(2);
+    const countParams = params.slice(0, -2);
     const countResult = await pool.query(
       `SELECT COUNT(*) FROM users ${whereClause}`,
       countParams

@@ -28,7 +28,7 @@ const getLaravelAppUrl = (req) => {
   return appUrl.replace(/\/$/, '');
 };
 
-const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET || 'KnowBridge-chat-secret-2026';
+const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET;
 
 const jwt = require('jsonwebtoken');
 const Agent = require('../models/Agent');
@@ -38,6 +38,13 @@ const Agent = require('../models/Agent');
  */
 const authenticate = async (req, res, next) => {
   try {
+    if (!process.env.JWT_SECRET || !process.env.CHAT_AUTH_SECRET) {
+      logger.error('CRITICAL: Missing JWT_SECRET or CHAT_AUTH_SECRET environment variables.');
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+    }
+
     logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     logger.info('🔐 AUTHENTICATION MIDDLEWARE TRIGGERED');
     logger.info(`📍 Route: ${req.method} ${req.path}`);
@@ -68,21 +75,27 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    // SPECIAL CASE: Allow demo-token for standalone Admin Dashboard (Port 3000)
+    // SPECIAL CASE: Allow demo-token for standalone Admin Dashboard (Port 3000) ONLY in non-production
     if (token === 'demo-token') {
+      if (process.env.NODE_ENV === 'production') {
+        logger.error('❌ CRITICAL SECURITY ALERT: Attempted to use demo-token in production.');
+        return res.status(401).json({ error: 'Invalid token' });
+      }
       logger.info('🔓 Auth: Using demo-token (Staff Panel)');
       // Fetch a valid agent ID from the DB to prevent foreign key errors
       const pool = require('../config/database');
-      const agentRes = await pool.query('SELECT id, name, email FROM agents LIMIT 1');
+      const agentRes = await pool.query('SELECT id, name, email, tenant_id FROM agents LIMIT 1');
       const validAgent = agentRes.rows[0];
 
       req.agent = {
         id: validAgent ? validAgent.id : null,
         name: validAgent ? validAgent.name : 'Staff Admin (Demo)',
         email: validAgent ? validAgent.email : 'dev@test.com',
-        role: 'super_admin',
+        role: 'admin',
+        tenant_id: validAgent ? validAgent.tenant_id : null,
         permissions: { view_all_chats: true, manage_chats: true }
       };
+      req.tenant_id = req.agent.tenant_id;
       logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return next();
     }
@@ -90,12 +103,13 @@ const authenticate = async (req, res, next) => {
     // OPTION 1: Try local JWT (for Staff Panel Login)
     try {
       logger.info('🔍 Attempting JWT verification...');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       const agent = await Agent.findById(decoded.id);
       if (agent) {
         req.agent = agent;
-        logger.info(`✅ Authenticated via JWT: ${req.agent.email} (${req.agent.role})`);
+        req.tenant_id = agent.tenant_id;
+        logger.info(`✅ Authenticated via JWT: ${req.agent.email} (${req.agent.role}) Tenant: ${req.tenant_id}`);
         logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return next();
       }
@@ -109,9 +123,11 @@ const authenticate = async (req, res, next) => {
       const targetLaravelUrl = getLaravelAppUrl(req);
       const verifyUrl = `${targetLaravelUrl}/api/chat/verify`;
       
+      const secretToUse = CHAT_AUTH_SECRET || 'dev_secret';
+      
       logger.info(`🔍 Laravel SSO Verification:`);
       logger.info(`   URL: ${verifyUrl}`);
-      logger.info(`   Secret: ${CHAT_AUTH_SECRET.substring(0, 10)}...`);
+      logger.info(`   Secret: ${secretToUse.substring(0, 10)}...`);
       logger.info(`   Token: ${token.substring(0, 20)}...`);
       
       const response = await axios.post(verifyUrl, {
@@ -121,7 +137,7 @@ const authenticate = async (req, res, next) => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-Chat-Secret': CHAT_AUTH_SECRET
+          'X-Chat-Secret': secretToUse
         }
       });
 
@@ -149,8 +165,10 @@ const authenticate = async (req, res, next) => {
         name: response.data.user.name,
         email: response.data.user.email,
         role: response.data.user.role,
+        tenant_id: response.data.user.tenant_id,
         permissions: response.data.user.permissions || {}
       };
+      req.tenant_id = req.agent.tenant_id;
 
       logger.info(`✅ AUTHENTICATION SUCCESS via Laravel SSO`);
       logger.info(`   User: ${req.agent.email}`);
@@ -260,7 +278,7 @@ const bypassAuth = async (req, res, next) => {
   const pool = require('../config/database');
   let validAgent = null;
   try {
-    const agentRes = await pool.query('SELECT id, name, email FROM agents LIMIT 1');
+    const agentRes = await pool.query('SELECT id, name, email, tenant_id FROM agents LIMIT 1');
     validAgent = agentRes.rows[0];
   } catch (e) {
     logger.warn('Failed to fetch valid agent in bypassAuth:', e.message);
@@ -270,7 +288,8 @@ const bypassAuth = async (req, res, next) => {
     id: validAgent ? validAgent.id : null,
     name: validAgent ? validAgent.name : 'Development Admin',
     email: validAgent ? validAgent.email : 'dev@test.com',
-    role: 'super_admin',
+    role: 'admin',
+    tenant_id: validAgent ? validAgent.tenant_id : null,
     permissions: {
       view_all_chats: true,
       assign_chats: true,
@@ -281,6 +300,7 @@ const bypassAuth = async (req, res, next) => {
       manage_knowledge_base: true
     }
   };
+  req.tenant_id = req.agent.tenant_id;
   
   next();
 };

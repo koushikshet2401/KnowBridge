@@ -2,7 +2,7 @@ import { useState } from 'react'
 import api from '../services/api'
 import { Eye, EyeOff, Save, UserPlus, Key, CheckCircle, AlertCircle, Loader } from 'lucide-react'
 
-// ✅ OUTSIDE component - prevents remount on each keystroke
+// âœ… OUTSIDE component - prevents remount on each keystroke
 const InputField = ({ label, type = 'text', value, onChange, placeholder, showToggle, showValue, onToggle }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -23,6 +23,36 @@ const InputField = ({ label, type = 'text', value, onChange, placeholder, showTo
         >
           {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
+      )}
+
+      {activeTab === 'widget-embed' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-indigo-100 p-2.5 rounded-xl">
+              <Key className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Widget Embed Code</h3>
+              <p className="text-sm text-gray-500">Copy and paste this code to integrate the chat widget on your website</p>
+            </div>
+          </div>
+          
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 font-mono text-sm overflow-x-auto whitespace-pre">
+            {`<script>
+  window.KnowBridgeConfig = {
+    tenantId: "${JSON.parse(localStorage.getItem('knowbridge_admin_user') || '{}').tenant_id || 'YOUR_TENANT_ID'}",
+    apiUrl: "${import.meta.env.VITE_API_URL || 'http://localhost:5000'}"
+  };
+</script>
+<script src="${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/widget/chat-widget.bundle.js" async></script>`}
+          </div>
+          <button onClick={() => {
+            navigator.clipboard.writeText(`<script>\n  window.KnowBridgeConfig = {\n    tenantId: "${JSON.parse(localStorage.getItem('knowbridge_admin_user') || '{}').tenant_id || 'YOUR_TENANT_ID'}",\n    apiUrl: "${import.meta.env.VITE_API_URL || 'http://localhost:5000'}"\n  };\n</script>\n<script src="${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/widget/chat-widget.bundle.js" async></script>`);
+            alert('Copied to clipboard!');
+          }} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
+            Copy to Clipboard
+          </button>
+        </div>
       )}
     </div>
   </div>
@@ -50,7 +80,7 @@ const Settings = () => {
   const [pwResult, setPwResult]   = useState(null)
 
   // Create agent state
-  const [agentForm, setAgentForm]     = useState({ name: '', email: '', password: '', role: 'agent', websiteDomain: '' })
+  const [agentForm, setAgentForm]     = useState({ name: '', email: '', password: '', role: 'agent',  })
   const [agentLoading, setAgentLoading] = useState(false)
   const [agentResult, setAgentResult]   = useState(null)
 
@@ -92,7 +122,7 @@ const Settings = () => {
     try {
       await api.post('/admin/agents', agentForm)
       setAgentResult({ success: true, message: `Agent "${agentForm.name}" created successfully!` })
-      setAgentForm({ name: '', email: '', password: '', role: 'agent', websiteDomain: '' })
+      setAgentForm({ name: '', email: '', password: '', role: 'agent',  })
     } catch (error) {
       setAgentResult({ success: false, message: error.response?.data?.error || 'Failed to create agent' })
     } finally {
@@ -111,8 +141,9 @@ const Settings = () => {
       <div className="border-b border-gray-200">
         <nav className="flex space-x-6">
           {[
-            { key: 'password',     label: '🔑 Change Password' },
-            { key: 'create-agent', label: '👤 Create Agent'    }
+            { key: 'password',     label: 'ðŸ”‘ Change Password' },
+            { key: 'create-agent', label: 'ðŸ‘¤ Create Agent'    },
+            { key: 'widget-embed', label: '💻 Widget Embed' }
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -127,7 +158,7 @@ const Settings = () => {
         </nav>
       </div>
 
-      {/* ── Change Password ─────────────────────────── */}
+      {/* â”€â”€ Change Password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === 'password' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -189,7 +220,7 @@ const Settings = () => {
         </div>
       )}
 
-      {/* ── Create Agent ────────────────────────────── */}
+      {/* â”€â”€ Create Agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === 'create-agent' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -225,13 +256,6 @@ const Settings = () => {
               showToggle
               showValue={false}
               onToggle={() => {}}
-            />
-            <InputField
-              label="Website Domain"
-              type="text"
-              value={agentForm.websiteDomain}
-              onChange={e => setAgentForm(p => ({ ...p, websiteDomain: e.target.value }))}
-              placeholder="e.g. clientwebsite.com"
             />
 
             <div>
@@ -269,3 +293,5 @@ const Settings = () => {
 }
 
 export default Settings
+
+

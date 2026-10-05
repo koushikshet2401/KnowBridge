@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KnowBridge - Enterprise SaaS Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #334155;
+            --accent: #2563eb;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-main);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: var(--primary);
+            margin-top: 50px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            color: var(--secondary);
+            margin-top: 30px;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 40px 0;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #f1f5f9;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+
+        .checklist li {
+            padding: 12px 15px;
+            background: #f1f5f9;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent);
+            font-weight: 500;
+        }
+
+        .checklist li span {
+            display: inline-block;
+            width: 30px;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .box-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .box-item {
+            background: #fff;
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .box-item h4 {
+            margin-top: 0;
+            color: var(--accent);
+        }
+
+        .security-note {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KnowBridge</h1>
+            <p>Multi-Tenant SaaS Chatbot Architecture</p>
+        </header>
+
+        <!-- DIAGRAM 1 -->
+        <div class="section">
+            <h2>DIAGRAM 1 - CURRENT SYSTEM: CHAT WIDGET & TENANT FLOW</h2>
+            <p>This architecture visualizes how the current chatbot widget operates when embedded into a client's application. It demonstrates strict tenant isolation, connection paths, and security boundaries.</p>
+            
+            <div class="mermaid">
+                flowchart TD
+                    %% Client Websites
+                    subgraph ClientA ["Client A (abc.com)"]
+                        WidgetA["Standardized KnowBridge Widget"]
+                        ConfigA["Config: TENANT_ABC"]
+                        WidgetA --- ConfigA
+                    end
+
+                    subgraph ClientB ["Client B (xyz.com)"]
+                        WidgetB["Standardized KnowBridge Widget"]
+                        ConfigB["Config: TENANT_XYZ"]
+                        WidgetB --- ConfigB
+                    end
+
+                    %% Security Boundary
+                    subgraph BackendBoundary ["Strict Security Boundary"]
+                        subgraph Backend ["KnowBridge Backend Server"]
+                            API["HTTP REST API & Rate Limiters"]
+                            Socket["Socket.IO Server"]
+                            TenantAuth{"Server-Side Tenant Validation"}
+                            ChatCtrl["Chat & Message Controllers"]
+                        end
+                    end
+
+                    %% Databases
+                    subgraph Storage ["Tenant-Scoped Storage"]
+                        DB[("PostgreSQL Database")]
+                        RAG["Vector Knowledge Base"]
+                    end
+
+                    %% External AI
+                    subgraph ExternalAI ["AI Provider"]
+                        LLM(("OpenAI API"))
+                    end
+
+                    %% Admin Dashboards
+                    subgraph AdminDashboards ["Admin Dashboards"]
+                        AdminA["Admin Dashboard (Admin A)"]
+                        AdminB["Admin Dashboard (Admin B)"]
+                    end
+
+                    %% Client A Flow
+                    ClientA -->|1. Init Chat (REST)| API
+                    ClientA -->|2. Connect (Socket)| Socket
+                    
+                    %% Client B Flow
+                    ClientB -->|1. Init Chat (REST)| API
+                    ClientB -->|2. Connect (Socket)| Socket
+
+                    API --> TenantAuth
+                    Socket --> TenantAuth
+
+                    TenantAuth -->|Valid: TENANT_ABC| ChatCtrl
+                    TenantAuth -->|Valid: TENANT_XYZ| ChatCtrl
+
+                    ChatCtrl -->|Scoped Query| Storage
+                    ChatCtrl -->|Prompt + Context| LLM
+                    LLM -->|AI Response| ChatCtrl
+
+                    %% Admin Flow
+                    Storage -.->|TENANT_ABC Data| AdminA
+                    Storage -.->|TENANT_XYZ Data| AdminB
+
+                    %% Styles
+                    classDef client fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px;
+                    classDef backend fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+                    classDef db fill:#f3e8ff,stroke:#9333ea,stroke-width:2px;
+                    classDef ext fill:#fef9c3,stroke:#ca8a04,stroke-width:2px;
+                    classDef admin fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
+
+                    class ClientA,ClientB client;
+                    class Backend backend;
+                    class Storage db;
+                    class ExternalAI ext;
+                    class AdminA,AdminB admin;
+            </div>
+
+            <div class="grid-2">
+                <div>
+                    <h3>Core Concepts</h3>
+                    <div class="box-list" style="grid-template-columns: 1fr;">
+                        <div class="box-item">
+                            <h4>Tenant ID</h4>
+                            <p>Identifies the client, company, or application (e.g., TENANT_ABC). Passed via public widget config, but strictly validated server-side against registered domains.</p>
+                        </div>
+                        <div class="box-item">
+                            <h4>User/Guest ID</h4>
+                            <p>Identifies the visitor or user within that specific tenant. Auto-generated or passed via authenticated client sessions.</p>
+                        </div>
+                        <div class="box-item">
+                            <h4>Conversation ID</h4>
+                            <p>Identifies a particular chat session bound to a specific User ID and Tenant ID.</p>
+                        </div>
+                        <div class="box-item">
+                            <h4>Admin Account</h4>
+                            <p>Identifies the person who manages a specific tenant's conversations via the dashboard. Access is strictly scoped to the assigned Tenant ID.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3>Security Flow</h3>
+                    <div class="security-note">
+                        <strong>CRITICAL:</strong> The backend must not blindly trust a Tenant ID supplied by an untrusted client browser.
+                        <br><br>
+                        <strong>Secure Flow:</strong><br>
+                        1. Frontend sends Tenant ID via X-Tenant-ID header.<br>
+                        2. Backend intercepts request using the <code>validateTenantOrigin</code> middleware.<br>
+                        3. It strictly validates the origin domain against the registered Tenant configuration.<br>
+                        4. Resolves authorized Tenant.<br>
+                        5. Executes strictly tenant-scoped database queries (e.g., `WHERE tenant_id = $1`).<br>
+                        6. Returns tenant-scoped response.
+                    </div>
+                    
+                    <div class="security-note" style="background: #f0fdf4; border-color: #bbf7d0; color: #166534;">
+                        <strong>Public Widget Integrity:</strong>
+                        The client browser contains ONLY the public widget configuration (Tenant ID, API URL). It NEVER contains OpenAI API keys, Database credentials, or JWT signing secrets. All sensitive credentials remain securely on the server.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DIAGRAM 2 -->
+        <div class="section">
+            <h2>DIAGRAM 2 - PRODUCTION CLIENT ONBOARDING & SALES FLOW</h2>
+            <p>This architecture maps the commercial onboarding process and technical integration for new SaaS clients.</p>
+            
+            <div class="mermaid">
+                flowchart TD
+                    subgraph SalesFlow ["Sales & Provisioning"]
+                        A1[New Client Signup] --> A2[Sales/Onboarding Process]
+                        A2 --> A3[Create Unique Tenant Record <br/> e.g., TENANT_ABC]
+                        A3 --> A4[Register Client Domain <br/> e.g., https://abc.com]
+                        A4 --> A5[Create Client Admin Account]
+                    end
+
+                    subgraph TechConfig ["Technical Configuration"]
+                        A5 --> B1[Assign Admin to Tenant]
+                        B1 --> B2[Configure Tenant Knowledge Base]
+                        B2 --> B3[Generate Public Widget Config]
+                        B3 --> B4[Provide Standardized Integration Instructions]
+                    end
+
+                    subgraph ClientDeployment ["Client Installation & Deployment"]
+                        B4 --> C1[Client Developer Receives Script]
+                        C1 --> C2[Developer Adds Widget to Global Root Layout]
+                        C2 --> C3[Client Deploys to Production Website]
+                    end
+
+                    subgraph LiveSystem ["Live Production System"]
+                        C3 --> D1[Website Loads KnowBridge Widget]
+                        D1 --> D2[Widget Connects to KnowBridge Backend]
+                        D2 --> D3[Backend Validates Tenant Origin]
+                        D3 --> D4[Conversations Stream to Tenant Database]
+                        D4 --> D5[Client Admin Views Data in Dashboard]
+                    end
+
+                    classDef phase1 fill:#eff6ff,stroke:#3b82f6,stroke-width:2px;
+                    classDef phase2 fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px;
+                    classDef phase3 fill:#fff7ed,stroke:#f97316,stroke-width:2px;
+                    classDef phase4 fill:#ecfdf5,stroke:#10b981,stroke-width:2px;
+
+                    class SalesFlow phase1;
+                    class TechConfig phase2;
+                    class ClientDeployment phase3;
+                    class LiveSystem phase4;
+            </div>
+
+            <div class="grid-2">
+                <div>
+                    <h3>Onboarding Checklist</h3>
+                    <ul class="checklist">
+                        <li><span>1</span> Client signs up / contract completed</li>
+                        <li><span>2</span> Create tenant</li>
+                        <li><span>3</span> Register client domain</li>
+                        <li><span>4</span> Create client admin</li>
+                        <li><span>5</span> Assign admin to tenant</li>
+                        <li><span>6</span> Configure chatbot</li>
+                        <li><span>7</span> Configure knowledge base</li>
+                        <li><span>8</span> Generate tenant-specific widget config</li>
+                        <li><span>9</span> Give integration instructions</li>
+                        <li><span>10</span> Client integrates widget</li>
+                        <li><span>11</span> Verify widget connection</li>
+                        <li><span>12</span> Send test conversation</li>
+                        <li><span>13</span> Verify conversation in Admin Dashboard</li>
+                        <li><span>14</span> Verify tenant isolation</li>
+                        <li><span>15</span> Production deployment</li>
+                        <li><span>16</span> Final acceptance test</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3>What We Sell (Client Deliverables)</h3>
+                    <div class="box-item" style="background: #f8fafc; margin-bottom: 20px;">
+                        <p style="margin-top:0;">When a client purchases KnowBridge, they receive access to the following configuration and assets:</p>
+                        <ul style="padding-left: 20px; line-height: 1.8;">
+                            <li>Standardized KnowBridge Chatbot Widget</li>
+                            <li>Client-specific Tenant allocation</li>
+                            <li>Unique Tenant Configuration script</li>
+                            <li>Client Admin Account(s)</li>
+                            <li>Admin Dashboard Access</li>
+                            <li>Widget Integration Instructions</li>
+                            <li>Client Website/Domain Registration</li>
+                            <li>Knowledge-base configuration pipeline</li>
+                            <li>AI / Prompt Configuration interface</li>
+                            <li>Production Support & SLA</li>
+                        </ul>
+                        <p style="font-size: 0.9em; color: var(--text-muted); margin-bottom:0;"><em>Note: The client does NOT receive our internal API keys, database credentials, or OpenAI keys.</em></p>
+                    </div>
+
+                    <h3>Standardized Integration</h3>
+                    <div class="box-item" style="background: #eff6ff; border-color: #bfdbfe;">
+                        <p style="margin: 0;">We utilize <strong>ONE STANDARDIZED INTEGRATION METHOD</strong> across all client applications. Whether Client A, B, or C, they all inject the same core <code>chat-widget.bundle.js</code> into their global/root layout, parameterized only by their unique <code>tenantId</code> and environment variables.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#ffffff',
+                primaryTextColor: '#1e293b',
+                primaryBorderColor: '#cbd5e1',
+                lineColor: '#64748b',
+                secondaryColor: '#f8fafc',
+                tertiaryColor: '#f1f5f9'
+            },
+            flowchart: {
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>

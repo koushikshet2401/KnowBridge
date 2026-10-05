@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Pipeline (Knowledge Base) - KnowBridge01</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8fafc; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        h1 { color: #1e293b; margin-top: 0; }
+        .description { color: #64748b; margin-bottom: 30px; line-height: 1.6; }
+        .mermaid { display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Data Pipeline: Knowledge Base Ingestion</h1>
+        <p class="description">This data-flow diagram maps how raw documents and web pages are ingested, transformed into vector embeddings, and strictly scoped by Tenant ID.</p>
+        <div class="mermaid">
+            flowchart LR
+                subgraph Sources ["Data Sources"]
+                    Web["Web Crawler (URLs)"]
+                    PDF["PDF Uploads"]
+                    Text["Raw Text Paste"]
+                end
+
+                subgraph Transform ["Extraction & Chunking"]
+                    Parser["Content Parser (PDF.js / Cheerio)"]
+                    Splitter["Text Splitter (~500 tokens)"]
+                end
+
+                subgraph AI_Layer ["OpenAI Embeddings Layer"]
+                    EmbeddingModel(("text-embedding-ada-002"))
+                end
+
+                subgraph Storage ["PostgreSQL + pgvector"]
+                    DB_Docs[("Documents Table")]
+                    DB_Chunks[("Document_Chunks Table <br/> (Vector Column)")]
+                end
+                
+                subgraph Boundary ["Strict Security Boundary"]
+                    TenantScoped{"Tenant ID <br/> Enforcement"}
+                end
+
+                %% Connections
+                Web --> Parser
+                PDF --> Parser
+                Text --> Parser
+                
+                Parser --> Splitter
+                Splitter --> DB_Docs
+                
+                Splitter --> TenantScoped
+                TenantScoped --> EmbeddingModel
+                
+                EmbeddingModel --> |"Dense Vector [1536]"| DB_Chunks
+                
+                DB_Docs -.-> |"1 to Many"| DB_Chunks
+
+                %% Styling
+                classDef source fill:#cbd5e1,stroke:#94a3b8,color:black;
+                classDef transform fill:#fde047,stroke:#ca8a04,color:black;
+                classDef ai fill:#c084fc,stroke:#9333ea,color:white;
+                classDef storage fill:#3b82f6,stroke:#1d4ed8,color:white;
+                classDef security fill:#ef4444,stroke:#b91c1c,color:white;
+
+                class Web,PDF,Text source;
+                class Parser,Splitter transform;
+                class EmbeddingModel ai;
+                class DB_Docs,DB_Chunks storage;
+                class TenantScoped security;
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

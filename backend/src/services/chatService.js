@@ -6,34 +6,34 @@ const emailService = require('./emailService');
 class ChatService {
 
   // ── Start new chat ──────────────────────────────
-  async startChat({ clientDomain, userId, userName, userEmail, channel, message }) {
+  async startChat({ tenantId, userId, userName, userEmail, channel, message }) {
     try {
       let user = null;
       if (userId) {
         const r = await pool.query(
-          `SELECT * FROM users WHERE external_id = $1 AND client_domain = $2`,
-          [String(userId), clientDomain]
+          `SELECT * FROM users WHERE external_id = $1 AND tenant_id = $2`,
+          [String(userId), tenantId]
         );
         user = r.rows[0];
       }
 
       if (!user) {
         const r = await pool.query(
-          `INSERT INTO users (external_id, name, email, client_domain, created_at, updated_at)
+          `INSERT INTO users (external_id, name, email, tenant_id, created_at, updated_at)
            VALUES ($1, $2, $3, $4, NOW(), NOW())
-           ON CONFLICT (client_domain, external_id) DO UPDATE
+           ON CONFLICT (tenant_id, external_id) DO UPDATE
            SET name = EXCLUDED.name, email = EXCLUDED.email, updated_at = NOW()
            RETURNING *`,
-          [String(userId || `guest_${Date.now()}`), userName || 'Guest', userEmail || null, clientDomain]
+          [String(userId || `guest_${Date.now()}`), userName || 'Guest', userEmail || null, tenantId]
         );
         user = r.rows[0];
       }
 
       // Create new chat
       const chatResult = await pool.query(
-        `INSERT INTO chats (user_id, status, channel, client_domain, created_at, updated_at)
+        `INSERT INTO chats (user_id, status, channel, tenant_id, created_at, updated_at)
          VALUES ($1, 'active', $2, $3, NOW(), NOW()) RETURNING *`,
-        [user.id, channel || 'web', clientDomain]
+        [user.id, channel || 'web', tenantId]
       );
       const chat = chatResult.rows[0];
 
@@ -43,7 +43,7 @@ class ChatService {
       const greeting  = await aiService.generateGreeting({ userName, timeOfDay });
 
       const greetingMsg = await pool.query(
-        `INSERT INTO messages (chat_id, sender_type, content, created_at) VALUES ($1, 'ai', $2, NOW()) RETURNING *`,
+        `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at) VALUES ($1, 'ai', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
         [chat.id, greeting]
       );
       let messages = [greetingMsg.rows[0]];
@@ -67,7 +67,7 @@ class ChatService {
       // Allow AI to continue responding even if chat is pending/escalated
       // ── Save user message ────────────────────────
       const userMsg = await pool.query(
-        `INSERT INTO messages (chat_id, sender_type, content, created_at) VALUES ($1, 'user', $2, NOW()) RETURNING *`,
+        `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at) VALUES ($1, 'user', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
         [chatId, content]
       );
       const userMessage = userMsg.rows[0];
@@ -78,11 +78,11 @@ class ChatService {
 
       // ── Check for pending escalation confirmation ──
       // ── Check if human agent is assigned ───────────
-      const chatRes = await pool.query(`SELECT status, assigned_to, metadata FROM chats WHERE id = $1`, [chatId]);
+      const chatRes = await pool.query(`SELECT status, assigned_agent_id, metadata, tenant_id FROM chats WHERE id = $1`, [chatId]);
       const chatRow = chatRes.rows[0] || {};
       const metadata = chatRow.metadata || {};
 
-      if (chatRow.assigned_to || chatRow.status === 'pending' || chatRow.status === 'closed') {
+      if (chatRow.assigned_agent_id || chatRow.status === 'pending' || chatRow.status === 'closed') {
         // Human agent is handling this chat, it's waiting for one, or it's closed. Do not generate an AI response.
         return {
           message: null,
@@ -106,7 +106,7 @@ class ChatService {
           }).catch(e => logger.error('Escalation error:', e.message));
           
           const confirmMsg = await pool.query(
-            `INSERT INTO messages (chat_id, sender_type, content, created_at) VALUES ($1, 'ai', $2, NOW()) RETURNING *`,
+            `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at) VALUES ($1, 'ai', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
             [chatId, "I'm connecting you with a human support agent who can help you right away. Please wait a moment..."]
           );
           if (global.io) {
@@ -121,7 +121,7 @@ class ChatService {
           };
         } else if (['no', 'nope', 'nah', 'not now'].some(k => lowerMsg.includes(k))) {
           const cancelMsg = await pool.query(
-            `INSERT INTO messages (chat_id, sender_type, content, created_at) VALUES ($1, 'ai', $2, NOW()) RETURNING *`,
+            `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at) VALUES ($1, 'ai', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
             [chatId, "Okay, no problem! Is there anything else you need help with?"]
           );
           if (global.io) {
@@ -150,7 +150,8 @@ class ChatService {
         aiResult = await aiService.generateResponse({
           userMessage: content,
           conversationHistory,
-          knowledgeBaseContext: null
+          knowledgeBaseContext: null,
+          tenantId: chatRow.tenant_id
         });
       } catch (aiError) {
         logger.error('AI response generation failed:', aiError.message);
@@ -169,7 +170,7 @@ class ChatService {
 
       // ── Save AI response ─────────────────────────
       const aiMsg = await pool.query(
-        `INSERT INTO messages (chat_id, sender_type, content, created_at) VALUES ($1, 'ai', $2, NOW()) RETURNING *`,
+        `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at) VALUES ($1, 'ai', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
         [chatId, aiResult.response]
       );
       const aiMessage = aiMsg.rows[0];
@@ -214,26 +215,15 @@ class ChatService {
       );
       const chat = chatResult.rows[0];
 
-      // Extract domain to find tenant agents
-      let tenantDomain = '';
-      if (chat && chat.client_domain) {
-        try {
-          // e.g. "http://test.com" -> "test.com", "localhost:5500" -> "localhost"
-          tenantDomain = chat.client_domain.replace(/^https?:\/\//, '').split(':')[0];
-        } catch (e) {
-          tenantDomain = chat.client_domain;
-        }
-      }
-
       // Get all admin agents for this tenant + super admins
       const agentsResult = await pool.query(
-        `SELECT id, email, name, role FROM agents WHERE (role = 'super_admin' OR email = 'admin@demo.com' OR (role = 'admin' AND website_domain = $1)) AND email IS NOT NULL`,
-        [tenantDomain]
+        `SELECT id, email, name, role FROM agents WHERE role = 'super_admin' OR tenant_id = $1`,
+        [chat.tenant_id]
       );
       
       const agentEmails = agentsResult.rows.map(a => a.email).filter(Boolean);
 
-      logger.info(`🔔 Escalating chat ${chatId} — notifying ${agentEmails.length} agents`);
+      logger.info(`🔔 Escalating chat ${chatId} — notifying ${agentEmails.length} agents for tenant ${chat.tenant_id}`);
 
       // Send email
       if (agentEmails.length > 0 && process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
@@ -264,9 +254,9 @@ class ChatService {
         }
       }
 
-      // Socket notification
+      // Socket notification (isolated to tenant)
       if (global.io) {
-        global.io.to('admin-room').emit('chat-escalated', {
+        global.io.of('/admin').to(`tenant_room_${chat.tenant_id}`).emit('chat-escalated', {
           chatId,
           userQuestion,
           clientDomain: chat?.client_domain || 'unknown',
@@ -326,8 +316,8 @@ class ChatService {
 
             const promptMsg = "I'm sorry I couldn't resolve your issue. Would you like to connect with a human support agent?";
             const promptRow = await pool.query(
-              `INSERT INTO messages (chat_id, sender_type, content, created_at)
-               VALUES ($1, 'ai', $2, NOW()) RETURNING *`,
+              `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at)
+               VALUES ($1, 'ai', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
               [chatId, promptMsg]
             );
             improvedMessage = promptRow.rows[0];

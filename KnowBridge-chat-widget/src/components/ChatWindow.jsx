@@ -351,8 +351,17 @@ const MessageBubble = ({ message, onFeedback, onSuggestionClick }) => {
     try { return JSON.stringify(c); } catch { return '[Content]'; }
   };
 
+  const escapeHtml = (unsafe) => {
+    return String(unsafe)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
   const formatMessage = (text) =>
-    String(text || '')
+    escapeHtml(String(text || ''))
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\n/g, '<br/>');
 

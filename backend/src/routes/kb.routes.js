@@ -4,7 +4,12 @@ const kbController = require('../controllers/kbController');
 const { authenticate } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
-// Public routes (for AI queries)
+const { verifySignature } = require('../middleware/signature');
+
+// Public routes (for AI queries from widget)
+router.use('/search', verifySignature);
+router.use('/documents/:id', verifySignature);
+
 router.post('/search', kbController.searchKnowledgeBase);
 router.get('/documents/:id', kbController.getDocument);
 

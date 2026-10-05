@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { loginLimiter } = require('../middleware/rateLimiter');
 
 /**
  * @route   POST /api/auth/login
  * @desc    Login agent/admin and get token
  * @access  Public
  */
-router.post('/login', authController.login);
+router.post('/login', loginLimiter, authController.login);
 
 /**
  * @route   POST /api/auth/signup
@@ -21,6 +22,7 @@ router.post('/signup', authController.signup);
  * @desc    Get current logged in user
  * @access  Private
  */
-router.get('/me', authController.getMe);
+const { authenticate } = require('../middleware/auth');
+router.get('/me', authenticate, authController.getMe);
 
 module.exports = router;

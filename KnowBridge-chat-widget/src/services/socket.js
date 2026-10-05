@@ -17,9 +17,9 @@ export const connectSocket = (apiUrl, userId) => {
     return null;
   }
 
-  const socketUrl    = base.replace(/\/api\/?$/, '').replace(/\/$/, '');
-  const clientDomain = (window.CHAT_CONFIG && window.CHAT_CONFIG.client_domain) || window.location.host;
-  const token        = (window.CHAT_CONFIG && window.CHAT_CONFIG.authToken)
+  const socketUrl = base.replace(/\/api\/?$/, '').replace(/\/$/, '');
+  const tenantId  = (window.CHAT_CONFIG && window.CHAT_CONFIG.tenantId) || window.KnowBridgeConfig?.tenantId;
+  const token     = (window.CHAT_CONFIG && window.CHAT_CONFIG.authToken)
     || localStorage.getItem('KnowBridge_chat_token')
     || null;
 
@@ -36,8 +36,8 @@ export const connectSocket = (apiUrl, userId) => {
   console.log('🔌 Connecting socket to:', socketUrl);
 
   socket = io(socketUrl, {
-    auth:  { token, clientDomain },
-    query: { userId: String(userId || ''), clientDomain },
+    auth:  { token, tenantId },
+    query: { userId: String(userId || ''), tenantId },
     transports:           ['websocket', 'polling'],
     reconnection:         true,
     reconnectionDelay:    1000,

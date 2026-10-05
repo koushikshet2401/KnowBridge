@@ -56,7 +56,19 @@ function isEscalationNeeded(userMessage) {
 
 class AIService {
   constructor() {
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const isGroq = !!process.env.GROQ_API_KEY;
+    this.openai = new OpenAI({ 
+      apiKey: isGroq ? process.env.GROQ_API_KEY : process.env.OPENAI_API_KEY,
+      baseURL: isGroq ? 'https://api.groq.com/openai/v1' : 'https://api.openai.com/v1'
+    });
+    this.defaultModel = isGroq ? 'llama-3.1-8b-instant' : 'gpt-4o-mini';
+    this.fastModel = isGroq ? 'llama-3.1-8b-instant' : 'gpt-3.5-turbo';
+    
+    if (isGroq) {
+      logger.info('🚀 AI Service initialized with Groq API (LLaMA 3.1)');
+    } else {
+      logger.info('🧠 AI Service initialized with OpenAI API');
+    }
   }
 
   async generateGreeting({ userName, timeOfDay }) {
@@ -69,7 +81,7 @@ class AIService {
     return greetings[timeOfDay] || greetings.day;
   }
 
-  async generateResponse({ userMessage, conversationHistory, knowledgeBaseContext }) {
+  async generateResponse({ userMessage, conversationHistory, knowledgeBaseContext, tenantId }) {
     try {
       // ── Step 1: Small talk check ──────────────────
       const smallTalk = getSmallTalkResponse(userMessage);
@@ -89,7 +101,7 @@ class AIService {
       let relevantChunks = [];
       let sources = [];
       try {
-        const chunks = await searchSimilarChunks(userMessage, 5);
+        const chunks = await searchSimilarChunks(userMessage, 5, tenantId);
         relevantChunks = chunks.map(c => c.content);
         sources = chunks
           .filter(c => c.source_url)
@@ -157,7 +169,7 @@ RULES:
       }
 
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.defaultModel,
         messages,
         temperature: hasKBContent ? 0.0 : 0.4,
         max_tokens: 1000,
@@ -172,7 +184,7 @@ RULES:
       return {
         response,
         suggestions: needsEscalation ? [] : this.generateSuggestions(userMessage, response),
-        model: 'gpt-4o-mini',
+        model: this.defaultModel,
         confidence: hasKBContent ? 0.95 : 0.75,
         tokensUsed: completion.usage.total_tokens,
         sources,
@@ -223,7 +235,7 @@ DO NOT escalate if: general questions, how-to, pricing.`
       ];
 
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: this.fastModel,
         messages,
         temperature: 0.3,
         max_tokens: 10
@@ -236,11 +248,12 @@ DO NOT escalate if: general questions, how-to, pricing.`
     }
   }
 
-  async retryResponse({ originalMessage, originalResponse, conversationHistory, userFeedback }) {
+  async retryResponse({ originalMessage, originalResponse, conversationHistory, userFeedback, tenantId }) {
     try {
       let context = '';
       try {
-        const chunks = await searchSimilarChunks(originalMessage, 5);
+        if (!tenantId) throw new Error('tenantId is required for retryResponse');
+        const chunks = await searchSimilarChunks(originalMessage, 5, tenantId);
         if (chunks.length > 0) context = chunks.map(c => c.content).join('\n\n');
       } catch (e) {}
 
@@ -258,7 +271,7 @@ DO NOT escalate if: general questions, how-to, pricing.`
       ];
 
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.defaultModel,
         messages,
         temperature: 0.5,
         max_tokens: 400
@@ -266,7 +279,7 @@ DO NOT escalate if: general questions, how-to, pricing.`
 
       return {
         response: completion.choices[0].message.content.trim(),
-        model: 'gpt-4o-mini',
+        model: this.defaultModel,
         confidence: 0.8,
         tokensUsed: completion.usage.total_tokens,
         needsEscalation: false

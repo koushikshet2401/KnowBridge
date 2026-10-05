@@ -1,8 +1,10 @@
 require('dns').setDefaultResultOrder('ipv4first');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const http = require('http');
 const socketIo = require('socket.io');
+const path = require('path');
 const logger = require('./src/utils/logger');
 const pool = require('./src/config/database');
 
@@ -41,7 +43,7 @@ const server = http.createServer(app);
 // ----------------
 const io = socketIo(server, {
   cors: {
-    origin: process.env.SOCKET_IO_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'https://knowbridge-dashboard.onrender.com'],
+    origin: process.env.SOCKET_IO_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173', 'https://knowbridge-dashboard.onrender.com'],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -55,13 +57,16 @@ app.set('io', io);
 // ----------------
 // Middleware
 // ----------------
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin images/resources if needed
+}));
 
 // CORS
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'https://knowbridge-dashboard.onrender.com'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173', 'https://knowbridge-dashboard.onrender.com'],
   credentials: process.env.CORS_CREDENTIALS !== 'false',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-KnowBridge-Token', 'X-Student-Token', 'X-Student-Id', 'X-Client-Domain']
+  allowedHeaders: process.env.CORS_ALLOWED_HEADERS?.split(',') || ['Content-Type', 'Authorization', 'X-KnowBridge-Token', 'X-Student-Token', 'X-Student-Id', 'X-Client-Domain', 'X-EduCtrl-Token', 'X-Tenant-ID']
 }));
 
 const {
@@ -76,6 +81,9 @@ app.use('/api', apiLimiter);
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve the widget static files
+app.use('/widget', express.static(path.join(__dirname, 'public')));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -273,3 +281,18 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 module.exports = { app, server, io };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

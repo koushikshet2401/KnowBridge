@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Request Flow - KnowBridge01</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8fafc; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        h1 { color: #1e293b; margin-top: 0; }
+        .description { color: #64748b; margin-bottom: 30px; line-height: 1.6; }
+        .mermaid { display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Widget Chat Message Sequence</h1>
+        <p class="description">This sequence diagram illustrates the exact flow when a user sends a chat message via the public widget, passing through rate limiters, AI generation, and database storage.</p>
+        <div class="mermaid">
+            sequenceDiagram
+                actor User as User (Widget)
+                participant Express as Express Router
+                participant Limiter as Rate Limiter (IP)
+                participant ChatCtrl as ChatController
+                participant AIService as aiService (RAG)
+                participant DB as PostgreSQL
+                participant OpenAI as OpenAI LLM
+
+                User->>Express: POST /api/chat/:id/messages
+                Express->>Limiter: Check Request Rate
+                
+                alt Rate Limit Exceeded
+                    Limiter-->>User: 429 Too Many Requests
+                else Rate Limit OK
+                    Limiter->>ChatCtrl: Forward Request
+                    ChatCtrl->>DB: Verify Chat Session & Tenant
+                    DB-->>ChatCtrl: Session Data (tenant_id)
+                    
+                    ChatCtrl->>AIService: generateResponse(query, tenant_id)
+                    
+                    AIService->>DB: Fetch System Prompt for Tenant
+                    DB-->>AIService: Prompt Config
+                    
+                    AIService->>OpenAI: Request Embeddings for Query
+                    OpenAI-->>AIService: Vector Embeddings
+                    
+                    AIService->>DB: Vector Search (pgvector) <br/> match_documents(tenant_id)
+                    DB-->>AIService: Relevant Knowledge Chunks
+                    
+                    AIService->>OpenAI: Generate AI Answer (LLM) <br/> Context: Chunks
+                    OpenAI-->>AIService: AI Answer String
+                    
+                    AIService-->>ChatCtrl: Answer Return
+                    
+                    ChatCtrl->>DB: INSERT INTO messages (User Msg)
+                    ChatCtrl->>DB: INSERT INTO messages (AI Msg)
+                    
+                    ChatCtrl-->>User: 200 OK { ai_message }
+                end
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

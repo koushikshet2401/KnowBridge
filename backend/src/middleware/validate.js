@@ -84,7 +84,8 @@ const validateFile = (fieldName = 'file') => {
     }
 
     // Check file type
-    const allowedTypes = (process.env.ALLOWED_FILE_TYPES || 'image/jpeg,image/png,image/gif,application/pdf').split(',');
+    const defaultTypes = 'image/jpeg,image/png,image/gif,application/pdf,text/plain';
+    const allowedTypes = (process.env.ALLOWED_FILE_TYPES || defaultTypes).split(',').map(t => t.trim());
     if (!allowedTypes.includes(file.mimetype)) {
       return res.status(400).json({
         success: false,

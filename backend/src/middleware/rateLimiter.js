@@ -1,6 +1,6 @@
 const rateLimit = require('express-rate-limit');
 
-// ✅ Very relaxed limits for admin panel
+//  limits for admin panel
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: process.env.NODE_ENV === 'production' ? 200 : 10000, // Very high in dev
@@ -30,4 +30,11 @@ const newChatLimiter = rateLimit({
   skip: () => process.env.NODE_ENV !== 'production'
 });
 
-module.exports = { apiLimiter, chatMessageLimiter, newChatLimiter };
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 5 : 10000, // 5 attempts per 15 minutes
+  message: { success: false, error: 'Too many login attempts. Please try again after 15 minutes.' },
+  skip: () => process.env.NODE_ENV !== 'production'
+});
+
+module.exports = { apiLimiter, chatMessageLimiter, newChatLimiter, loginLimiter };

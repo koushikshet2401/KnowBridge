@@ -6,15 +6,15 @@ class Agent {
   /**
    * Create new agent
    */
-  static async create({ name, email, password, role = 'agent', maxConcurrentChats = 5 }) {
+  static async create({ tenant_id, name, email, password, role = 'agent', maxConcurrentChats = 5 }) {
     const id = uuidv4();
     const passwordHash = await bcrypt.hash(password, 10);
     
     const result = await pool.query(
-      `INSERT INTO agents (id, name, email, password_hash, role, max_concurrent_chats, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'offline')
-       RETURNING id, name, email, role, is_available, status, max_concurrent_chats, created_at`,
-      [id, name, email, passwordHash, role, maxConcurrentChats]
+      `INSERT INTO agents (id, tenant_id, name, email, password_hash, role, max_concurrent_chats, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'offline')
+       RETURNING id, tenant_id, name, email, role, is_available, status, max_concurrent_chats, created_at`,
+      [id, tenant_id, name, email, passwordHash, role, maxConcurrentChats]
     );
     
     return result.rows[0];
@@ -25,7 +25,7 @@ class Agent {
    */
   static async findById(id) {
     const result = await pool.query(
-      `SELECT id, name, email, role, is_available, avatar_url, status, 
+      `SELECT id, tenant_id, name, email, role, is_available, avatar_url, status, 
               max_concurrent_chats, metadata, last_active_at, created_at
        FROM agents WHERE id = $1`,
       [id]
@@ -144,11 +144,12 @@ class Agent {
   /**
    * Get all agents
    */
-  static async getAll({ role, isAvailable, page = 1, limit = 20 }) {
+  static async getAll({ tenantId, role, isAvailable, page = 1, limit = 20 }) {
+    if (!tenantId) throw new Error('tenantId is required');
     const offset = (page - 1) * limit;
-    const conditions = [];
-    const params = [];
-    let paramCount = 1;
+    const conditions = ['tenant_id = $1'];
+    const params = [tenantId];
+    let paramCount = 2;
 
     if (role) {
       conditions.push(`role = $${paramCount++}`);
@@ -160,14 +161,12 @@ class Agent {
       params.push(isAvailable);
     }
 
-    const whereClause = conditions.length > 0 
-      ? `WHERE ${conditions.join(' AND ')}` 
-      : '';
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
     params.push(limit, offset);
 
     const result = await pool.query(
-      `SELECT id, name, email, role, is_available, avatar_url, status,
+      `SELECT id, tenant_id, name, email, role, is_available, avatar_url, status,
               max_concurrent_chats, last_active_at, created_at
        FROM agents
        ${whereClause}
@@ -191,14 +190,15 @@ class Agent {
   }
 
   /**
-   * Get available agents
+   * Get available agents (Should be scoped to tenant, updating query)
    */
-  static async getAvailable() {
+  static async getAvailable(tenant_id) {
     const result = await pool.query(
-      `SELECT id, name, email, role, status, max_concurrent_chats
+      `SELECT id, tenant_id, name, email, role, status, max_concurrent_chats
        FROM agents
-       WHERE is_available = true AND status = 'online'
-       ORDER BY last_active_at DESC`
+       WHERE is_available = true AND status = 'online' AND tenant_id = $1
+       ORDER BY last_active_at DESC`,
+       [tenant_id]
     );
     return result.rows;
   }
@@ -206,17 +206,17 @@ class Agent {
   /**
    * Get agent with least active chats (for auto-assignment)
    */
-  static async getLeastBusyAgent() {
+  static async getLeastBusyAgent(tenant_id) {
     const result = await pool.query(`
       SELECT a.id, a.name, a.email, COUNT(c.id) as active_chats
       FROM agents a
       LEFT JOIN chats c ON c.assigned_agent_id = a.id AND c.status = 'active'
-      WHERE a.is_available = true AND a.status = 'online'
+      WHERE a.is_available = true AND a.status = 'online' AND a.tenant_id = $1
       GROUP BY a.id, a.name, a.email, a.max_concurrent_chats
       HAVING COUNT(c.id) < a.max_concurrent_chats
       ORDER BY COUNT(c.id) ASC
       LIMIT 1
-    `);
+    `, [tenant_id]);
     return result.rows[0] || null;
   }
 

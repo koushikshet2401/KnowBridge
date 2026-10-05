@@ -139,13 +139,40 @@ const deletePattern = async (pattern) => {
   }
 
   try {
-    const keys = await redisClient.keys(pattern);
-    if (keys.length > 0) {
-      await redisClient.del(...keys);
-      logger.debug(`🗑️ Cache DELETE pattern: ${pattern} (${keys.length} keys)`);
-      return keys.length;
-    }
-    return 0;
+    return new Promise((resolve, reject) => {
+      let deletedCount = 0;
+      const stream = redisClient.scanStream({
+        match: pattern,
+        count: 100
+      });
+
+      stream.on('data', async (keys) => {
+        if (keys.length) {
+          // Pause stream while we delete the batch
+          stream.pause();
+          try {
+            await redisClient.del(...keys);
+            deletedCount += keys.length;
+          } catch (err) {
+            logger.error(`Error deleting batch for pattern ${pattern}:`, err);
+          } finally {
+            stream.resume();
+          }
+        }
+      });
+
+      stream.on('end', () => {
+        if (deletedCount > 0) {
+          logger.debug(`🗑️ Cache DELETE pattern: ${pattern} (${deletedCount} keys)`);
+        }
+        resolve(deletedCount);
+      });
+
+      stream.on('error', (err) => {
+        logger.error(`Stream error in deletePattern for ${pattern}:`, err);
+        resolve(deletedCount); // Resolve with what we managed to delete
+      });
+    });
   } catch (error) {
     logger.error(`Redis DELETE pattern error for ${pattern}:`, error);
     return 0;
@@ -209,8 +236,8 @@ const flushAll = async () => {
   }
 
   try {
-    await redisClient.flushall();
-    logger.info('🗑️ Redis cache flushed');
+    await redisClient.flushdb();
+    logger.info('🗑️ Redis cache flushed (current database)');
     return true;
   } catch (error) {
     logger.error('Redis FLUSH error:', error);

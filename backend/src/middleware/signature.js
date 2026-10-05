@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET || 'KnowBridge-chat-secret-2026';
+const CHAT_AUTH_SECRET = process.env.CHAT_AUTH_SECRET;
 
 // Local high-speed memory cache for verified Laravel SSO tokens to minimize server-to-server API overhead
 const ssoCache = new Map(); // token -> { user, expiresAt }
@@ -11,35 +11,30 @@ const ssoCache = new Map(); // token -> { user, expiresAt }
 const getLaravelAppUrl = (req) => {
   const referer = req.headers.referer;
 
-  // 1. Try to extract from Referer to support subdirectory-based tenants IF the browser sends the full path
   if (referer && referer.includes('/public/')) {
     try {
       const url = new URL(referer);
       const basePath = url.pathname.substring(0, url.pathname.indexOf('/public/') + 7);
       return `${url.protocol}//${url.host}${basePath}`;
-    } catch (e) {
-      // Ignore parsing errors
-    }
+    } catch (e) {}
   }
 
-  // 2. If the path is stripped (e.g., Strict-Origin policy), use the environment variable directly.
-  // Ensure we strip any trailing slashes to prevent //api/chat/verify
   let appUrl = process.env.LARAVEL_APP_URL || 'http://127.0.0.1:8000';
   return appUrl.replace(/\/$/, '');
 };
 
-/**
- * Middleware to verify SHA256 HMAC cryptographic signatures from client integrations.
- * If a valid X-KnowBridge-Token is provided, it attempts token validation first.
- * Prevents identity/domain spoofing and replay attacks.
- */
 const verifySignature = async (req, res, next) => {
-  // Graceful bypass in Mock Development environment
+  if (!process.env.CHAT_AUTH_SECRET || !process.env.JWT_SECRET) {
+    logger.error('CRITICAL: Missing CHAT_AUTH_SECRET or JWT_SECRET environment variables.');
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+  }
+
   if (process.env.MOCK_LARAVEL_AUTH === 'true') {
     return next();
   }
 
-  // Check if a token-based SSO session is being used (React widget is logged in)
   const token = req.headers['x-knowbridge-token'] || req.headers['authorization']?.replace('Bearer ', '');
   if (token) {
     const now = Date.now();
@@ -54,10 +49,9 @@ const verifySignature = async (req, res, next) => {
       }
     }
 
-    // Try Local JWT verification first
     try {
       const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       const Agent = require('../models/Agent');
       const agent = await Agent.findById(decoded.id);
@@ -68,6 +62,7 @@ const verifySignature = async (req, res, next) => {
           name: agent.name,
           email: agent.email,
           role: agent.role,
+          tenant_id: agent.tenant_id,
           permissions: agent.permissions || {}
         };
         logger.info(`✅ [VERIFY-FLOW] Local JWT bypass success for ${req.agent.email}`);
@@ -81,7 +76,6 @@ const verifySignature = async (req, res, next) => {
     try {
       targetLaravelUrl = getLaravelAppUrl(req);
       logger.info(`🔍 [VERIFY-FLOW] Origin: ${req.headers.origin || 'none'}, Resolving to: ${targetLaravelUrl}`);
-      logger.info(`🔍 [VERIFY-FLOW] Token received: ${token.substring(0, 10)}... (length: ${token.length})`);
       
       const response = await axios.post(`${targetLaravelUrl}/api/chat/verify`, {
         token: token
@@ -94,19 +88,16 @@ const verifySignature = async (req, res, next) => {
         }
       });
 
-      logger.info(`🔍 [VERIFY-FLOW] Laravel response status: ${response.status}`);
-      logger.info(`🔍 [VERIFY-FLOW] Laravel response data:`, response.data);
-
       if (response.data && response.data.success && response.data.user) {
         const userData = {
           id: response.data.user.id,
           name: response.data.user.name,
           email: response.data.user.email,
           role: response.data.user.role,
+          tenant_id: response.data.user.tenant_id,
           permissions: response.data.user.permissions || {}
         };
 
-        // Cache successful token validation for 5 minutes to reduce server-to-server load
         ssoCache.set(token, {
           user: userData,
           expiresAt: Date.now() + 5 * 60 * 1000

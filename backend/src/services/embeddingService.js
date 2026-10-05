@@ -34,9 +34,11 @@ async function generateEmbeddings(texts) {
   }
 }
 
-async function searchSimilarChunks(query, limit = 5) {
+async function searchSimilarChunks(query, limit = 5, tenantId) {
   const pool = require('../config/database');
   try {
+    if (!tenantId) throw new Error('tenantId is required for secure vector search');
+    
     const queryEmbedding = await generateEmbeddings([query]);
     const embedding = queryEmbedding[0];
 
@@ -45,11 +47,12 @@ async function searchSimilarChunks(query, limit = 5) {
               1 - (dc.embedding <=> $1::vector) as similarity
        FROM document_chunks dc
        JOIN documents d ON dc.document_id = d.id
-       WHERE d.is_active = true
+       WHERE dc.tenant_id = $3
+         AND d.tenant_id = $3
          AND 1 - (dc.embedding <=> $1::vector) > 0.3
        ORDER BY dc.embedding <=> $1::vector
        LIMIT $2`,
-      [JSON.stringify(embedding), limit]
+      [JSON.stringify(embedding), limit, tenantId]
     );
     return result.rows;
   } catch (error) {

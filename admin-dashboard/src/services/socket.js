@@ -6,8 +6,10 @@ let socket = null
 
 export const initSocket = () => {
   if (!socket) {
-    socket = io(SOCKET_URL, {
+    const token = localStorage.getItem('knowbridge_admin_token') || window.KNOWBRIDGE_AUTH?.token;
+    socket = io(`${SOCKET_URL}/admin`, {
       autoConnect: false,
+      auth: { token }
     })
   }
   return socket

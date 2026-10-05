@@ -22,22 +22,18 @@ const requiredEnvVars = [
   'DB_NAME'
 ];
 
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (!process.env.DATABASE_URL) {
+  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
-if (missingEnvVars.length > 0) {
-  logger.error('❌ Missing required environment variables:', missingEnvVars);
-  logger.error('Please check your .env file in the backend directory');
-  process.exit(1);
+  if (missingEnvVars.length > 0) {
+    logger.error('❌ Missing required environment variables:', missingEnvVars);
+    logger.error('Please provide DATABASE_URL or individual DB_* variables');
+    process.exit(1);
+  }
 }
 
 // Create PostgreSQL connection pool with environment variables
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT, 10),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  
+const poolConfig = {
   // Connection pool settings
   max: parseInt(process.env.DB_POOL_MAX || '20', 10), // Maximum connections in pool
   min: parseInt(process.env.DB_POOL_MIN || '2', 10),  // Minimum connections
@@ -48,7 +44,19 @@ const pool = new Pool({
   ssl: process.env.DB_SSL === 'true' ? {
     rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
   } : false
-});
+};
+
+if (process.env.DATABASE_URL) {
+  poolConfig.connectionString = process.env.DATABASE_URL;
+} else {
+  poolConfig.host = process.env.DB_HOST;
+  poolConfig.port = parseInt(process.env.DB_PORT, 10);
+  poolConfig.user = process.env.DB_USER;
+  poolConfig.password = process.env.DB_PASSWORD;
+  poolConfig.database = process.env.DB_NAME;
+}
+
+const pool = new Pool(poolConfig);
 
 // Test database connection on startup
 pool.connect((err, client, release) => {

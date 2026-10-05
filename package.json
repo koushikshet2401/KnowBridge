@@ -1,0 +1,12 @@
+{
+  "name": "knowbridge-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KnowBridge Chat Support System Root Setup",
+  "scripts": {
+    "install:all": "npm install --prefix backend && npm install --prefix admin-dashboard && npm install --prefix KnowBridge-chat-widget",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:admin": "npm run dev --prefix admin-dashboard",
+    "dev:widget": "npm run start --prefix KnowBridge-chat-widget"
+  }
+}

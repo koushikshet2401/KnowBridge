@@ -126,9 +126,25 @@ const KnowledgeBase = () => {
     formData.append('file', file)
 
     try {
-      const response = await api.post('/admin/knowledge-base/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('knowbridge_admin_token') || window.KNOWBRIDGE_AUTH?.token;
+      
+      const res = await fetch(`${API_URL}/api/admin/knowledge-base/upload`, {
+        method: 'POST',
+        headers: {
+          'X-KnowBridge-Token': token
+        },
+        body: formData
+      });
+
+      if (!res.ok) {
+        let errData;
+        try { errData = await res.json(); } catch(e) {}
+        throw new Error(errData?.error || 'Upload failed');
+      }
+
+      const response = { data: await res.json() };
+
       setUploadProgress({
         name:   file.name,
         status: 'success',
@@ -139,7 +155,7 @@ const KnowledgeBase = () => {
       setUploadProgress({
         name:    file.name,
         status:  'error',
-        message: error.response?.data?.error || 'Upload failed'
+        message: error.message || 'Upload failed'
       })
       setTimeout(() => setUploadProgress(null), 6000)
     } finally {

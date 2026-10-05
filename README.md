@@ -1,152 +1,186 @@
-# KnowBridge Chat System
+# KnowBridge Chat Support System
 
-A comprehensive, AI-powered customer support and chat platform. KnowBridge (formerly EduCtrl) seamlessly integrates real-time agent-to-customer chat with an intelligent Knowledge Base, capable of answering queries contextually using advanced vector search and OpenAI embeddings. 
+KnowBridge is a comprehensive, enterprise-grade multi-tenant AI Chat Support system. It enables SaaS providers, agencies, and enterprises to embed smart, AI-powered chat widgets across multiple isolated client websites, while managing all conversations, vector-based knowledge bases, and user data from a central backend.
 
-## Table of Contents
+---
 
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
-- [Local Installation](#local-installation)
-- [Environment Variables](#environment-variables)
-- [How to Use the Platform](#how-to-use-the-platform)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
+## 🏗️ System Architecture
 
-## Features
+The project is split into three main components, all designed with strict **Tenant Isolation**:
 
-- **Real-time Chat Engine** — Socket.IO-powered live messaging between support agents and customers/students.
-- **AI Knowledge Base (RAG)** — Upload PDFs, paste raw text, or use the built-in web crawler to ingest documentation. Documents are chunked and stored as vector embeddings using `pgvector`.
-- **Intelligent Web Crawler** — Automatically crawl and scrape pages from a base URL, respecting exclusions, to keep your AI trained on your latest website content.
-- **Smart AI Responses** — Leverages OpenAI's embedding models (`text-embedding-3-small` / `large`) and LLMs to provide context-aware, highly accurate support responses directly from your uploaded materials.
-- **Role-based Access Control (RBAC)** — Distinct roles for System Admins (who can manage integrations and system settings) and Support Agents.
-- **Live Notifications** — Real-time alerts for chat assignments, escalations, and system updates.
-- **Tenant & Agent Isolation** — Advanced schema design to ensure data is safely partitioned and routed to the correct support agents.
+1. **`backend/` (Node.js, Express, Socket.IO, PostgreSQL + pgvector)**
+   The core API that handles multi-tenant authentication, realtime WebSockets, vector knowledge base searches via OpenAI (`text-embedding-3-small`), and data storage. It strictly validates incoming widget requests by matching the HTTP `Origin` against the tenant's registered domain to prevent data leaks.
 
-## Tech Stack
+2. **`admin-dashboard/` (React, Vite, Tailwind CSS)**
+   The control panel for tenant admins. Admins can log in, view live chat conversations in real-time, configure their AI knowledge base (uploading PDFs/Docs to create vector embeddings), and generate the embed code for their widget.
 
-| Layer | Technology |
-|---|---|
-| **Backend** | Node.js, Express.js |
-| **Database** | PostgreSQL 15/16+ with `pgvector` extension |
-| **Real-time** | Socket.IO |
-| **AI / LLM** | OpenAI API, LangChain.js |
-| **Admin Dashboard** | React 18, Vite, Tailwind CSS |
-| **Chat Widget** | React (Embeddable Widget) |
+3. **`KnowBridge-chat-widget/` (React, Webpack)**
+   A lightweight, embeddable React application bundled into a single JS file. It gets injected into client websites and connects to the backend via WebSockets to provide end-users with AI-driven or human-driven customer support.
 
-## Prerequisites
+---
 
-- Node.js 18+
-- PostgreSQL (with the `pgvector` extension installed). **Highly Recommended**: Use the `ankane/pgvector` Docker image to avoid local extension compilation issues.
-- An active **OpenAI API Key**
+## 🛠️ Prerequisites & Installation
 
-## Local Installation
+Before you start, ensure you have the following installed on your machine:
+*   **Node.js** (v18 or higher)
+*   **PostgreSQL** (v15 or higher) with the **`pgvector`** extension installed. (Crucial for AI knowledge base similarity search).
+*   **Redis** (Optional but recommended for session/caching).
+*   **OpenAI API Key** (Required for the AI chat responses and embedding generation).
 
+*(Note: You can easily run PostgreSQL with pgvector and Redis using the provided `docker-compose.yml` file)*
+
+### 1. Install All Dependencies (One-Click)
+Because this is a monorepo with three separate projects, you can install everything at once from the root directory using the root `package.json`:
 ```bash
-# Clone the repository
-git clone <this-repo-url>
-cd knowbridge
+npm run install:all
+```
+*(This will automatically install dependencies for the backend, admin-dashboard, and chat-widget).*
+
+### 2. Optional: Run Database via Docker
+If you don't want to install PostgreSQL locally, you can use the included Docker configuration to spin up a PostgreSQL instance (pre-loaded with the `pgvector` extension) and a Redis instance:
+```bash
+docker-compose up -d
 ```
 
-### 1. Database Setup (Docker - Recommended)
-Since the system requires the `pgvector` extension for AI search, the easiest way to run the database is via Docker:
-```bash
-docker run -d --name pgvector-db -e POSTGRES_PASSWORD=your_password -p 5435:5432 ankane/pgvector
-```
-*(Once running, connect to this container on port 5435 and create a database named `knowbridge`)*
+---
 
-### 2. Backend Setup
-```bash
-cd backend
-npm install
-cp .env.example .env        # Fill in your database and OpenAI credentials
-npm run migrate             # Runs all SQL migrations automatically
-npm run dev                 # Starts the API server on http://localhost:5000
-```
+## ⚙️ 1. Backend Setup & Configuration
 
-### 3. Admin Dashboard Setup
-```bash
-# Open a new terminal
-cd admin-dashboard
-npm install
-cp .env.example .env
-npm run dev                 # Starts the dashboard on http://localhost:3000
-```
+### Step 1: Database Setup
+1. Open your local PostgreSQL instance (or the Docker container via pgAdmin/psql) and create a new database.
+2. Ensure the `pgvector` extension is enabled on this database (required for vector embeddings):
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+3. The backend uses raw SQL migrations located in `backend/database/migrations/`. You must run these files against your database to create the required tables (`tenants`, `agents`, `conversations`, `messages`, `document_chunks`).
 
-## Environment Variables
-
-### Backend (`backend/.env`)
-
-| Variable | Required | Notes |
-|---|---|---|
-| `PORT` | No | Defaults to `5000` |
-| `DB_HOST` | Yes | Database host (e.g., `localhost`) |
-| `DB_PORT` | Yes | Database port (e.g., `5435` if using the Docker setup above) |
-| `DB_NAME` | Yes | Target database name (e.g., `knowbridge`) |
-| `DB_USER` / `DB_PASSWORD` | Yes | Database credentials |
-| `OPENAI_API_KEY` | Yes | Your secret OpenAI API key (`sk-proj-...`) |
-| `OPENAI_EMBEDDING_MODEL` | No | E.g., `text-embedding-3-small` |
-| `OPENAI_MODEL` | No | E.g., `gpt-3.5-turbo` or `gpt-4o` |
-| `NODE_OPTIONS` | No | Set to `--dns-result-order=ipv4first` if you experience OpenAI connection hangups |
-
-## How to Use the Platform
-
-1. **Login**: Use the demo admin credentials (`knownbridge@test.com` / `test123`) to log into the Admin Dashboard.
-2. **Train the AI**: Navigate to the **Knowledge Base** tab.
-   - Upload PDF guides or paste raw text.
-   - Use the **URL Crawler** to point the system at your company documentation. Set a max page limit and click "Start Crawl". 
-3. **Embed the Widget**: Integrate the code from the `eductrl-chat-widget-new` folder into your frontend website to allow customers to start chatting.
-4. **Chat & Escalate**: As customers ask questions, the AI will attempt to answer them using the vector database. If the AI cannot help, the chat is escalated to a human agent, triggering a real-time notification on the dashboard.
-
-## 🔌 Widget Integration Guide
-
-You can easily embed the KnowBridge chat widget into any external website (WordPress, Shopify, custom HTML, React, etc.) **without needing to separately host the widget frontend**.
-
-### Method 1: Serving via Backend (Recommended)
-You can build the widget into static files and have your Node.js backend serve them directly:
-1. Navigate to the widget folder and build it:
+### Step 2: Environment Variables
+1. Copy the example `.env` file:
    ```bash
-   cd eductrl-chat-widget-new
-   npm run build
+   cd backend
+   cp .env.example .env
    ```
-2. Copy the contents of the generated `dist` folder into a new `public` directory inside your `backend` folder.
-3. Update your `backend/server.js` to serve these static files:
-   ```javascript
-   app.use('/widget', express.static(path.join(__dirname, 'public')));
+2. Open `backend/.env` and fill in the required variables:
+   *   `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_PORT`: Your PostgreSQL credentials.
+   *   `JWT_SECRET`: A secure, random 32+ character string.
+   *   `OPENAI_API_KEY`: Your OpenAI API key starting with `sk-...`.
+   *   `CORS_ORIGIN`: A comma-separated list of allowed domains (e.g., `http://localhost:3000,http://localhost:8000`).
+
+### Step 3: Run the Backend
+You can test the database connection using the provided test script:
+```bash
+node database/test_db.js
+```
+If successful, start the backend development server:
+```bash
+npm run dev
+# OR from the root directory: npm run dev:backend
+```
+*The backend will run on `http://localhost:5000`.*
+
+---
+
+## 🖥️ 2. Admin Dashboard Setup
+
+### Step 1: Environment Variables
+1. Navigate to the admin dashboard and copy the `.env` file:
+   ```bash
+   cd admin-dashboard
+   cp .env.example .env
    ```
-4. Now, any external website can embed the widget by simply adding this to their HTML:
-   ```html
-   <iframe src="https://your-backend-domain.com/widget/index.html" 
-           style="position: fixed; bottom: 20px; right: 20px; width: 400px; height: 600px; border: none; border-radius: 12px; z-index: 9999;">
-   </iframe>
+2. Verify that `VITE_API_URL` and `VITE_SOCKET_URL` point to your backend (default is `http://localhost:5000`).
+
+### Step 2: Run the Dashboard
+Because this is a multi-tenant system, you might want to run multiple instances of the dashboard to test different tenant accounts.
+
+To start a single instance on port 8000:
+```bash
+npm run dev -- --port=8000
+# OR from the root directory: npm run dev:admin
+```
+*The Admin Dashboard will run on `http://localhost:8000`.*
+
+*(Note: The Admin Dashboard dynamically relies on the backend `localhost:5000` for authentication and WebSocket connections. Ensure the backend is running).*
+
+---
+
+## 💬 3. Chat Widget Setup
+
+### Step 1: Build the Widget Bundle
+The chat widget must be bundled into a single JavaScript file so it can be embedded into client websites.
+```bash
+cd KnowBridge-chat-widget
+npm run build:bundle
+```
+This command will use Webpack to generate `chat-widget.bundle.js` inside the `dist/` directory.
+
+### Step 2: Serve the Widget
+For development and testing, copy the generated `chat-widget.bundle.js` into the `backend/public/` folder. The backend is configured to statically serve this file at:
+`http://localhost:5000/widget/chat-widget.bundle.js`
+
+---
+
+## 🏢 4. Multi-Tenant Flow & Creating a Tenant
+
+Because KnowBridge is a multi-tenant SaaS platform, every client company (Tenant) must have a unique `Tenant ID`. This ID is the "glue" that connects the Chat Widget on the client's website to their specific Admin Dashboard.
+
+### How the Flow Works:
+1. **The Widget:** The Chat Widget is embedded on the client's website and configured with their specific `Tenant ID`.
+2. **The Request:** When an end-user sends a message, the widget sends the `Tenant ID` and the browser's `Origin` URL to the backend.
+3. **The Validation:** The backend intercepts this request, checks the PostgreSQL database, and verifies that the `Origin` URL exactly matches the domain registered to that `Tenant ID`.
+4. **The Routing:** Once validated, the message is saved to that tenant's database partition and broadcasted via WebSockets **only** to Admin Dashboards currently logged in under that same `Tenant ID`.
+5. **The AI:** If the user asks an AI question, the backend uses the `Tenant ID` to strictly filter the `pgvector` database, ensuring the AI only generates answers using that specific company's PDF documents.
+
+### How to Create a New Tenant:
+To manually create a new tenant for testing:
+
+1. Open your PostgreSQL database.
+2. Insert a new company into the `tenants` table (a UUID will be generated automatically, or you can supply one):
+   ```sql
+   INSERT INTO tenants (id, name, domain, status) 
+   VALUES (gen_random_uuid(), 'My Test Company', 'localhost', 'active') 
+   RETURNING id;
+   ```
+   *(Note down the returned `id` — this is your `Tenant ID`!)*
+3. Create an admin account linked to this new tenant:
+   ```sql
+   INSERT INTO agents (id, tenant_id, name, email, password_hash, role, status) 
+   VALUES (gen_random_uuid(), 'YOUR_TENANT_ID_HERE', 'Admin Name', 'admin@test.com', 'bcrypt_hash_here', 'admin', 'active');
    ```
 
-### Method 2: Script Tag Embedding (Advanced)
-If you configure Vite in `eductrl-chat-widget-new/vite.config.js` to build a single standalone JavaScript file (disabling code-splitting), you can host that `.js` file on your backend or a CDN. Other sites can then inject the bot directly into their DOM:
+---
+
+## 🚀 5. End-to-End Testing (How to Embed)
+
+To test the entire flow, embed the widget into a frontend project (HTML, React, Next.js, etc.).
+
+1. Use the `Tenant ID` you generated in the steps above.
+2. In your client website's HTML `<body>`, add the following snippet:
+
 ```html
-<script src="https://your-backend-domain.com/widget.js" defer></script>
-<div id="knowbridge-chat-root"></div>
+<!-- KnowBridge Chat Widget Embed -->
+<div id="KnowBridge-chat-root"></div>
+<script>
+  window.CHAT_CONFIG = {
+    tenantId: "YOUR_TENANT_UUID_HERE",
+    apiUrl: "http://localhost:5000",
+    theme: "blue" // options: blue, green, purple, etc.
+  };
+  
+  window.addEventListener('load', () => {
+    if (window.KnowBridgeChat) window.KnowBridgeChat.init();
+  });
+</script>
+<script src="http://localhost:5000/widget/chat-widget.bundle.js" async></script>
 ```
 
-## Project Structure
+4. Open the client website in your browser.
+5. Open the Admin Dashboard (`http://localhost:8000`) and log in.
+6. Type a message in the client website widget. It will instantly appear in the Admin Dashboard via WebSockets.
 
-```text
-knowbridge/
-├── admin-dashboard/          # React SPA for support staff and admins
-│   ├── src/pages/            # Dashboard, Knowledge Base, Chat views
-│   └── src/components/       # Reusable UI elements (Tailwind)
-├── backend/                  # Node.js Express API Server
-│   ├── database/migrations/  # Sequential SQL schema migrations
-│   ├── src/controllers/      # API Logic (kbController, chatController, etc.)
-│   ├── src/services/         # OpenAI / LangChain embedding services
-│   └── server.js             # Main entry point
-└── eductrl-chat-widget-new/  # Embeddable customer-facing chat widget
-```
+---
 
-## Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `relation "document_chunks" does not exist` | Pending database migrations | Ensure you run `npm run migrate` in the backend folder to create the AI schema tables. |
-| `extension "vector" is not available` | Running standard local PostgreSQL | Install the `pgvector` extension, or switch to using the `ankane/pgvector` Docker image. |
-| Uploading a PDF results in `0 chunks` or a `Connection error` | IPv6 DNS hanging when connecting to OpenAI | Add `require('dns').setDefaultResultOrder('ipv4first');` to the very top of `backend/server.js`, or run node with `--dns-result-order=ipv4first`. |
+## 🔒 Security Notes for Production
+*   **Origin Validation:** The backend uses `validateTenantOrigin` middleware. It ensures that requests using a specific `tenantId` originate strictly from the domain registered to that tenant in the database.
+*   **No Secrets in Widget:** The Chat Widget (`CHAT_CONFIG`) requires only the public `tenantId`. Never inject API keys or JWTs into the client widget.
+*   **Vector Isolation:** All AI knowledge base queries strictly filter by `tenant_id` at the database level (`pgvector`) to prevent cross-tenant data contamination.

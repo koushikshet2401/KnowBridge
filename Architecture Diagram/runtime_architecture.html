@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Level Runtime Architecture - KnowBridge01</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8fafc; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        h1 { color: #1e293b; margin-top: 0; }
+        .description { color: #64748b; margin-bottom: 30px; line-height: 1.6; }
+        .mermaid { display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>High-Level Runtime Architecture</h1>
+        <p class="description">This diagram shows the primary path, core components, external dependencies, and trust boundaries of the KnowBridge01 SaaS application.</p>
+        <div class="mermaid">
+            flowchart TD
+                subgraph Untrusted_Client_Zone ["Untrusted Client Zone (Browsers)"]
+                    Widget["Chat Widget (React)"]
+                end
+                
+                subgraph Trusted_Admin_Zone ["Trusted Admin Zone"]
+                    Dashboard["Admin Dashboard (React)"]
+                end
+
+                subgraph Backend_Server ["Node.js API & Socket Server"]
+                    API_Gateway["Express API Gateway & Rate Limiters"]
+                    SocketIO["Socket.IO Server (Real-time)"]
+                    
+                    subgraph Core_Services ["Core Business Logic"]
+                        Auth["Auth Service (JWT)"]
+                        ChatLogic["Chat & Message Service"]
+                        VectorRAG["Knowledge Base & AI RAG Service"]
+                        Crawler["Web Crawler Service"]
+                    end
+                end
+                
+                subgraph Data_Layer ["Data Layer & External"]
+                    PostgreSQL[("PostgreSQL DB (Tenant Data)")]
+                    OpenAI(("OpenAI API (Embeddings & LLM)"))
+                end
+
+                %% Connections
+                Widget -->|1. Chat/Queries| API_Gateway
+                Widget -->|2. Real-time updates| SocketIO
+                
+                Dashboard -->|3. Manage Agents & Settings| API_Gateway
+                Dashboard -->|4. Agent Presence & Chats| SocketIO
+
+                API_Gateway --> Auth
+                API_Gateway --> ChatLogic
+                API_Gateway --> VectorRAG
+                API_Gateway --> Crawler
+                
+                SocketIO --> ChatLogic
+
+                ChatLogic --> PostgreSQL
+                VectorRAG --> PostgreSQL
+                Crawler --> PostgreSQL
+
+                VectorRAG -->|5. Vector Search| OpenAI
+                Crawler -->|6. Generate Embeddings| OpenAI
+
+                %% Styling
+                classDef frontend fill:#3b82f6,stroke:#1d4ed8,color:white;
+                classDef backend fill:#10b981,stroke:#047857,color:white;
+                classDef database fill:#8b5cf6,stroke:#6d28d9,color:white;
+                classDef external fill:#f59e0b,stroke:#b45309,color:white;
+
+                class Widget,Dashboard frontend;
+                class API_Gateway,SocketIO,Auth,ChatLogic,VectorRAG,Crawler backend;
+                class PostgreSQL database;
+                class OpenAI external;
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

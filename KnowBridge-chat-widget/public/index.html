@@ -6,6 +6,23 @@
   <title>KnowBridge Chat Widget Test</title>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="KnowBridge-chat-root"></div>
+  <script>
+    // Provide config for the widget so it knows where the backend is
+    window.CHAT_CONFIG = {
+      apiUrl: 'http://localhost:5000',
+      theme: 'purple'
+    };
+    
+    // Webpack will inject the JS bundle after this. 
+    // We wait for DOMContentLoaded to ensure the bundle has executed and attached KnowBridgeChat to window.
+    window.addEventListener('load', () => {
+      if (window.KnowBridgeChat) {
+        window.KnowBridgeChat.init();
+      } else {
+        console.error("KnowBridgeChat is not defined on window yet.");
+      }
+    });
+  </script>
 </body>
 </html>

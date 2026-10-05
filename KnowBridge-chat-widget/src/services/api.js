@@ -6,11 +6,10 @@ import axios from 'axios';
  */
 
 const getApiUrl = () => {
-  const base = (window.CHAT_CONFIG && window.CHAT_CONFIG.apiUrl)
-    ? window.CHAT_CONFIG.apiUrl
-    : '';
+  const config = window.CHAT_CONFIG || window.KnowBridgeConfig || {};
+  const base = config.apiUrl || '';
   if (!base) {
-    console.error('KnowBridge: CHAT_CONFIG.apiUrl is not set! Check blade template .env CHAT_BACKEND_URL');
+    console.error('KnowBridge: apiUrl is not set! Check window.KnowBridgeConfig');
     return '/api';
   }
   return base.replace(/\/$/, '') + '/api';
@@ -29,10 +28,11 @@ const addInterceptors = (instance) => {
       || localStorage.getItem('KnowBridge_chat_token')
       || null;
     if (token) config.headers['X-KnowBridge-Token'] = token;
-    if (!config.headers['X-Client-Domain']) {
-      config.headers['X-Client-Domain'] =
-        (window.CHAT_CONFIG && window.CHAT_CONFIG.client_domain)
-        || window.location.host;
+    
+    if (!config.headers['X-Tenant-ID']) {
+      const tenantId = (window.CHAT_CONFIG && window.CHAT_CONFIG.tenantId) 
+        || window.KnowBridgeConfig?.tenantId;
+      if (tenantId) config.headers['X-Tenant-ID'] = tenantId;
     }
     return config;
   });
@@ -57,7 +57,7 @@ export const startChat = async (message, userId, userName, userEmail) => {
     user_id:       userId,
     user_name:     userName,
     user_email:    userEmail,
-    client_domain: (window.CHAT_CONFIG && window.CHAT_CONFIG.client_domain) || window.location.host
+    tenant_id:     window.KnowBridgeConfig?.tenantId || window.CHAT_CONFIG?.tenantId
   });
   return response.data;
 };
@@ -66,7 +66,7 @@ export const sendMessage = async (chatId, message) => {
   const response = await getApi().post('/chat/message', {
     chat_id:       chatId,
     message,
-    client_domain: (window.CHAT_CONFIG && window.CHAT_CONFIG.client_domain) || window.location.host
+    tenant_id:     window.KnowBridgeConfig?.tenantId || window.CHAT_CONFIG?.tenantId
   });
   return response.data;
 };

@@ -5,15 +5,16 @@ class KnowledgeBase {
   /**
    * Create new document record
    */
-  static async create({ filename, filePath, fileSize, uploadedBy }) {
+  static async create({ tenantId, title, content = '', type = 'uploaded', sourceUrl = null, metadata = {} }) {
+    if (!tenantId) throw new Error('tenantId is required');
     const id = uuidv4();
     
     const result = await pool.query(
-      `INSERT INTO knowledge_base_documents 
-       (id, filename, file_path, file_size, status, uploaded_by)
-       VALUES ($1, $2, $3, $4, 'processing', $5)
+      `INSERT INTO documents 
+       (id, tenant_id, title, content, type, source_url, status, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, 'processing', $7)
        RETURNING *`,
-      [id, filename, filePath, fileSize, uploadedBy]
+      [id, tenantId, title, content, type, sourceUrl, JSON.stringify(metadata)]
     );
     
     return result.rows[0];
@@ -24,11 +25,7 @@ class KnowledgeBase {
    */
   static async findById(id) {
     const result = await pool.query(
-      `SELECT kb.*,
-              u.name as uploaded_by_name
-       FROM knowledge_base_documents kb
-       LEFT JOIN users u ON kb.uploaded_by = u.id
-       WHERE kb.id = $1`,
+      `SELECT * FROM documents WHERE id = $1`,
       [id]
     );
     return result.rows[0] || null;
@@ -37,20 +34,25 @@ class KnowledgeBase {
   /**
    * Get all documents
    */
-  static async getAll({ status = null, limit = 50 }) {
-    let statusCondition = status ? 'WHERE status = $1' : '';
-    let params = status ? [status, limit] : [limit];
-    let limitIndex = status ? 2 : 1;
+  static async getAll({ tenantId, status = null, limit = 50 }) {
+    if (!tenantId) throw new Error('tenantId is required');
+    
+    let conditions = ['tenant_id = $1'];
+    let params = [tenantId];
+    let paramCount = 2;
+
+    if (status) {
+      conditions.push(`status = $${paramCount++}`);
+      params.push(status);
+    }
+    
+    params.push(limit);
 
     const result = await pool.query(
-      `SELECT kb.*,
-              u.name as uploaded_by_name,
-              u.email as uploaded_by_email
-       FROM knowledge_base_documents kb
-       LEFT JOIN users u ON kb.uploaded_by = u.id
-       ${statusCondition}
-       ORDER BY kb.uploaded_at DESC
-       LIMIT $${limitIndex}`,
+      `SELECT * FROM documents
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY created_at DESC
+       LIMIT $${paramCount}`,
       params
     );
     
@@ -60,22 +62,13 @@ class KnowledgeBase {
   /**
    * Update document status
    */
-  static async updateStatus(id, status, chunksCount = null) {
-    const updates = ['status = $2'];
-    const params = [id, status];
-    let paramCount = 3;
-
-    if (chunksCount !== null) {
-      updates.push(`chunks_count = $${paramCount++}`);
-      params.push(chunksCount);
-    }
-
+  static async updateStatus(id, status) {
     const result = await pool.query(
-      `UPDATE knowledge_base_documents 
-       SET ${updates.join(', ')}
+      `UPDATE documents 
+       SET status = $2, updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING *`,
-      params
+      [id, status]
     );
     
     return result.rows[0] || null;
@@ -86,7 +79,7 @@ class KnowledgeBase {
    */
   static async delete(id) {
     const result = await pool.query(
-      'DELETE FROM knowledge_base_documents WHERE id = $1 RETURNING *',
+      'DELETE FROM documents WHERE id = $1 RETURNING *',
       [id]
     );
     return result.rows[0] || null;
@@ -95,34 +88,32 @@ class KnowledgeBase {
   /**
    * Get document count by status
    */
-  static async getStats() {
+  static async getStats(tenantId) {
+    if (!tenantId) throw new Error('tenantId is required');
     const result = await pool.query(`
       SELECT 
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = 'processing') as processing,
         COUNT(*) FILTER (WHERE status = 'processed') as processed,
-        COUNT(*) FILTER (WHERE status = 'error') as error_count,
-        SUM(file_size) as total_size,
-        SUM(chunks_count) as total_chunks
-      FROM knowledge_base_documents
-    `);
+        COUNT(*) FILTER (WHERE status = 'error') as error_count
+      FROM documents
+      WHERE tenant_id = $1
+    `, [tenantId]);
     
     return result.rows[0];
   }
 
   /**
-   * Search documents by filename
+   * Search documents by title
    */
-  static async search(searchTerm, { limit = 20 }) {
+  static async search(tenantId, searchTerm, { limit = 20 }) {
+    if (!tenantId) throw new Error('tenantId is required');
     const result = await pool.query(
-      `SELECT kb.*,
-              u.name as uploaded_by_name
-       FROM knowledge_base_documents kb
-       LEFT JOIN users u ON kb.uploaded_by = u.id
-       WHERE kb.filename ILIKE $1
-       ORDER BY kb.uploaded_at DESC
-       LIMIT $2`,
-      [`%${searchTerm}%`, limit]
+      `SELECT * FROM documents
+       WHERE tenant_id = $1 AND title ILIKE $2
+       ORDER BY created_at DESC
+       LIMIT $3`,
+      [tenantId, `%${searchTerm}%`, limit]
     );
     
     return result.rows;
