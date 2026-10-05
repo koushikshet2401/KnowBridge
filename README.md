@@ -17,6 +17,8 @@ The project is split into three main components, all designed with strict **Tena
 3. **`KnowBridge-chat-widget/` (React, Webpack)**
    A lightweight, embeddable React application bundled into a single JS file. It gets injected into client websites and connects to the backend via WebSockets to provide end-users with AI-driven or human-driven customer support.
 
+> 🗺️ **Visual Architecture Diagrams:** To see a detailed, interactive mapping of the entire system's runtime flow, data pipeline, and API request routing, open the HTML files inside the `Architecture Diagram/` folder in your browser!
+
 ---
 
 ## 🛠️ Prerequisites & Installation
