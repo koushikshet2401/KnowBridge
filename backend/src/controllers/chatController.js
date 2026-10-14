@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const { ChatService } = require('../services');
 const { Chat, Message, Feedback } = require('../models');
 const logger = require('../utils/logger');
+const { emitToChat } = require('../socket/emit');
 
 /**
 /**
@@ -112,7 +113,7 @@ exports.updateChatStatus = async (req, res) => {
   }
 };
 
-// ── Send message (from widget/student) ──────────────────
+// ── Send message (from widget/visitor) ──────────────────
 exports.sendMessage = async (req, res) => {
   try {
     const { chat_id, message, attachments } = req.body;
@@ -280,7 +281,7 @@ exports.retryAIResponse = async (req, res) => {
     if (result.improvedMessage) {
       const io = req.app.get('io');
       if (io) {
-        io.to(`chat_${chatId}`).emit('new-message', {
+        emitToChat(chatId, 'new-message', {
           chatId,
           message: result.improvedMessage
         });

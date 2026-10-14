@@ -116,7 +116,7 @@ class AIService {
 
       // ── Step 3: Build system prompt ───────────────
       const systemPrompt = hasKBContent
-        ? `You are KnowBridge Support Assistant. Answer ONLY using the context provided below.
+        ? `You are a helpful Support Assistant. Answer ONLY using the context provided below.
 
 STRICT RULES:
 1. ONLY use information from the context below. Do NOT use your training data.
@@ -130,10 +130,10 @@ ${relevantChunks.slice(0, 5).join('\n\n')}
 ---
 
 Answer ONLY from the context above.`
-        : `You are KnowBridge Support Assistant. You help users with questions about KnowBridge CRM.
+        : `You are a helpful Support Assistant for this website. No knowledge base content matched the question.
 
 RULES:
-1. Give helpful, direct answers about KnowBridge features
+1. Give helpful, direct answers; do not invent product-specific facts, prices or policies
 2. Use **bold** for key terms
 3. Keep answers 2-4 sentences
 4. If you truly don't know something specific, say: "I don't have that specific information in my knowledge base."
@@ -199,19 +199,11 @@ RULES:
 
   generateSuggestions(userMessage, aiResponse) {
     const lowerMsg = userMessage.toLowerCase();
-    if (lowerMsg.includes('lead') || lowerMsg.includes('inquiry'))
-      return ["How do I add a new student lead?", "Can I import leads from Excel?", "How to track follow-ups?"];
-    if (lowerMsg.includes('fee') || lowerMsg.includes('payment'))
-      return ["How to generate invoices?", "Set up payment reminders", "Track pending fees"];
-    if (lowerMsg.includes('admission') || lowerMsg.includes('enroll'))
-      return ["How to enroll new students?", "Manage admission documents", "Configure admission forms"];
-    if (lowerMsg.includes('sms') || lowerMsg.includes('email') || lowerMsg.includes('whatsapp'))
-      return ["Send bulk SMS to students", "Create email templates", "Set up WhatsApp notifications"];
-    if (lowerMsg.includes('report') || lowerMsg.includes('analytics'))
-      return ["View enrollment analytics", "Generate revenue reports", "Export data to Excel"];
     if (lowerMsg.includes('price') || lowerMsg.includes('cost') || lowerMsg.includes('plan'))
-      return ["Compare all pricing plans", "How to upgrade my plan?", "Is there a free trial?"];
-    return ["What is KnowBridge?", "Show me pricing plans", "How to get started?"];
+      return ["What plans do you offer?", "Is there a free trial?", "How do I upgrade?"];
+    if (lowerMsg.includes('account') || lowerMsg.includes('login') || lowerMsg.includes('password'))
+      return ["How do I reset my password?", "How do I update my account?", "Talk to a human agent"];
+    return ["How do I get started?", "What can you help me with?", "Talk to a human agent"];
   }
 
   async shouldEscalate({ userMessage, conversationHistory }) {

@@ -23,7 +23,7 @@ function setupChatSocket(io) {
         hostname = origin;
       }
       
-      if (hostname === 'localhost' || hostname === '127.0.0.1') return next();
+      if ((hostname === 'localhost' || hostname === '127.0.0.1') && process.env.NODE_ENV !== 'production') return next();
       hostname = hostname.replace('www.', '');
 
       const result = await pool.query('SELECT domain FROM tenants WHERE id = $1', [tenantId]);
@@ -64,9 +64,20 @@ function setupChatSocket(io) {
     /**
      * Join a chat room (for users)
      */
-    socket.on('join-chat', ({ chatId: roomChatId }) => {
+    socket.on('join-chat', async ({ chatId: roomChatId } = {}) => {
       const room = roomChatId || chatId;
       if (room) {
+        // Only allow joining chats that belong to this socket's tenant
+        try {
+          const owns = await pool.query('SELECT 1 FROM chats WHERE id = $1 AND tenant_id = $2', [room, tenantId]);
+          if (owns.rows.length === 0) {
+            socket.emit('joined-chat', { chatId: room, success: false, error: 'Chat not found' });
+            return;
+          }
+        } catch (e) {
+          socket.emit('joined-chat', { chatId: room, success: false, error: 'Chat not found' });
+          return;
+        }
         socket.join(`chat_${room}`);
         logger.info(`User socket ${socket.id} joined chat: ${room}`);
         
@@ -99,7 +110,7 @@ function setupChatSocket(io) {
      */
     socket.on('typing', ({ chatId: typingChatId }) => {
       const room = typingChatId || chatId;
-      if (room) {
+      if (room && socket.rooms.has(`chat_${room}`)) {
         socket.to(`chat_${room}`).emit('user-typing', {
           chatId: room,
           isTyping: true,
@@ -113,7 +124,7 @@ function setupChatSocket(io) {
      */
     socket.on('stop-typing', ({ chatId: typingChatId }) => {
       const room = typingChatId || chatId;
-      if (room) {
+      if (room && socket.rooms.has(`chat_${room}`)) {
         socket.to(`chat_${room}`).emit('user-typing', {
           chatId: room,
           isTyping: false,

@@ -3,25 +3,33 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const Login = () => {
-  const [email, setEmail] = useState('knownbridge@test.com');
-  const [password, setPassword] = useState('test123');
+  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [domain, setDomain] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const isSignup = mode === 'signup';
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { email, password });
-      
+      const response = isSignup
+        ? await api.post('/auth/signup', { companyName, name, email, password, domain })
+        : await api.post('/auth/login', { email, password });
+
       if (response.data.success) {
         // Save token and user info
-        localStorage.setItem('knowbridge_admin_token', response.data.token);
-        localStorage.setItem('knowbridge_admin_user', JSON.stringify(response.data.agent));
-        
+        localStorage.setItem('chaty_admin_token', response.data.token);
+        localStorage.setItem('chaty_admin_user', JSON.stringify(response.data.agent));
+
         // Redirect based on role
         if (response.data.agent.role === 'super_admin') {
           navigate('/dashboard');
@@ -30,24 +38,71 @@ const Login = () => {
         }
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to login. Please check your credentials.');
+      setError(err.response?.data?.error || (isSignup
+        ? 'Failed to create account.'
+        : 'Failed to login. Please check your credentials.'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const switchMode = () => {
+    setMode(isSignup ? 'login' : 'signup');
+    setError('');
   };
 
   return (
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <div className="logo-icon">K</div>
-          <h1>KnowBridge Support</h1>
-          <p>Sign in to your staff account</p>
+          <div className="logo-icon">C</div>
+          <h1>Chaty Support</h1>
+          <p>{isSignup ? 'Create an account for your website' : 'Sign in to your staff account'}</p>
         </div>
 
         {error && <div className="login-error">{error}</div>}
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleSubmit}>
+          {isSignup && (
+            <>
+              <div className="form-group">
+                <label htmlFor="companyName">Company Name</label>
+                <input
+                  type="text"
+                  id="companyName"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Acme Inc."
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="domain">Website Domain <span className="optional">(optional)</span></label>
+                <input
+                  type="text"
+                  id="domain"
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  placeholder="acme.com"
+                />
+                <small>Where the chat widget will run. You can change it later in Settings.</small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="name">Your Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jane Doe"
+                  required
+                />
+              </div>
+            </>
+          )}
+
           <div className="form-group">
             <label htmlFor="email">Email Address</label>
             <input
@@ -55,7 +110,7 @@ const Login = () => {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="knownbridge@test.com"
+              placeholder="you@company.com"
               required
             />
           </div>
@@ -68,23 +123,31 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              minLength={isSignup ? 6 : undefined}
               required
             />
           </div>
 
           <button type="submit" className="login-button" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading
+              ? (isSignup ? 'Creating account...' : 'Signing in...')
+              : (isSignup ? 'Create Account' : 'Sign In')}
           </button>
         </form>
 
+        <button type="button" className="login-switch" onClick={switchMode}>
+          {isSignup ? 'Already have an account? Sign in' : "New here? Create an account"}
+        </button>
+
         <div className="login-footer">
-          <p>&copy; 2026 KnowBridge Support Panel</p>
+          <p>&copy; 2026 Chaty Support Panel</p>
         </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         .login-container {
-          height: 100vh;
+          min-height: 100vh;
+          padding: 24px 16px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -176,6 +239,29 @@ const Login = () => {
         .login-button:disabled {
           background: #94a3b8;
           cursor: not-allowed;
+        }
+        .form-group small {
+          display: block;
+          margin-top: 6px;
+          font-size: 12px;
+          color: #94a3b8;
+        }
+        .form-group .optional {
+          font-weight: 400;
+          color: #94a3b8;
+        }
+        .login-switch {
+          display: block;
+          width: 100%;
+          margin-top: 16px;
+          background: none;
+          border: none;
+          color: #6366f1;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        .login-switch:hover {
+          text-decoration: underline;
         }
         .login-footer {
           margin-top: 32px;

@@ -1,4 +1,4 @@
-# KnowBridge Admin Dashboard v2.0
+# Chaty Admin Dashboard v2.0
 
 Admin dashboard for managing the AI Support Chat System with advanced features.
 
@@ -69,14 +69,11 @@ Admin dashboard for managing the AI Support Chat System with advanced features.
    npm run dev
    ```
    
-   The dashboard will be available at: **http://localhost:3000**
+   The dashboard will be available at: **http://localhost:8000**
 
-## 🔑 Default Login Credentials
+## 🔑 First Login
 
-- **Email:** admin@test.com
-- **Password:** admin123
-
-⚠️ **IMPORTANT:** Change these credentials in production!
+There are no default credentials. On the login page choose **Create an account** to create your company (tenant) and its first admin.
 
 ## 🚀 Build for Production
 
@@ -370,4 +367,4 @@ Private - All rights reserved
 
 ---
 
-**Built with ❤️ for KnowBridge AI Support System**
+**Built with ❤️ for Chaty AI Support System**

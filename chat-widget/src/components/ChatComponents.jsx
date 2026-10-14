@@ -15,7 +15,7 @@ export const ChatHeader = ({ onClose, isConnected }) => (
         </svg>
       </div>
       <div className="header-info">
-        <h3>KnowBridge Support</h3>
+        <h3>Chaty Support</h3>
         <span className={`status ${isConnected ? 'online' : 'offline'}`}>
           {isConnected ? '● Online' : '○ Offline'}
         </span>
@@ -124,8 +124,8 @@ export const MessageInput = ({ value, onChange, onSend, disabled, placeholder })
  */
 export const SuggestionButtons = ({ onSuggestionClick }) => {
   const suggestions = [
-    { text: 'What is KnowBridge?' },
-    { text: 'How to add student leads?' },
+    { text: 'How do I get started?' },
+    { text: 'What can you help me with?' },
     { text: 'Show me pricing plans' },
     { text: 'Talk to support agent' },
   ];

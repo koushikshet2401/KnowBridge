@@ -30,7 +30,7 @@
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.KnowBridge-chat-expanded .chat-window {
+.chaty-chat-expanded .chat-window {
   width: 800px !important;
   height: 80vh !important;
   bottom: 20px !important;
@@ -39,7 +39,7 @@
   left: auto !important;
 }
 
-.KnowBridge-chat-expanded .KnowBridge-conversations-list {
+.chaty-chat-expanded .chaty-conversations-list {
   width: 800px !important;
   height: 80vh !important;
   position: fixed !important;
@@ -56,7 +56,7 @@
 }
 
 /* Also apply base styles for conversations list here since it behaves like a window */
-.KnowBridge-conversations-list {
+.chaty-conversations-list {
   position: fixed !important;
   top: auto !important;
   left: auto !important;

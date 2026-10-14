@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo Store — Widget Test Site</title>
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --surface: #ffffff;
+      --text: #1f2933;
+      --muted: #616e7c;
+      --accent: #0f766e;
+      --border: #e4e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { font-weight: 700; font-size: 18px; color: var(--accent); }
+    nav a { margin-left: 20px; color: var(--muted); text-decoration: none; font-size: 14px; }
+    main { max-width: 960px; margin: 0 auto; padding: 48px 16px; }
+    .hero h1 { font-size: 36px; line-height: 1.2; margin: 0 0 12px; }
+    .hero p { color: var(--muted); font-size: 18px; margin: 0 0 32px; max-width: 560px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 16px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .price { margin-top: 12px; font-weight: 600; color: var(--accent); }
+
+    .setup {
+      margin-top: 48px;
+      background: var(--surface);
+      border: 1px dashed var(--accent);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .setup h2 { margin: 0 0 4px; font-size: 16px; }
+    .setup p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+    .setup form { display: flex; gap: 8px; flex-wrap: wrap; }
+    .setup input {
+      flex: 1 1 320px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+      font-size: 14px;
+    }
+    .setup button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .setup .status { margin-top: 10px; font-size: 13px; color: var(--muted); }
+    .setup code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; }
+    footer { text-align: center; color: var(--muted); font-size: 13px; padding: 32px 16px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Demo Store</div>
+    <nav>
+      <a href="#">Shop</a>
+      <a href="#">Shipping</a>
+      <a href="#">Returns</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Everyday goods, shipped fast.</h1>
+      <p>This is a sample website for testing the support chat widget locally. Ask the chat bubble in the corner about shipping, returns or anything in your knowledge base.</p>
+    </section>
+
+    <section class="grid">
+      <div class="card"><h3>Canvas Tote</h3><p>Sturdy, washable, fits a laptop.</p><div class="price">$24</div></div>
+      <div class="card"><h3>Ceramic Mug</h3><p>12 oz, dishwasher safe.</p><div class="price">$16</div></div>
+      <div class="card"><h3>Desk Lamp</h3><p>Warm LED, three brightness levels.</p><div class="price">$48</div></div>
+    </section>
+
+    <section class="setup">
+      <h2>Widget test setup</h2>
+      <p>Paste the Tenant ID from the admin dashboard (Settings → Widget Embed). It's saved in this browser only.</p>
+      <form id="tenant-form">
+        <input id="tenant-id" placeholder="Tenant ID, e.g. 3f2b1c9e-..." autocomplete="off" spellcheck="false">
+        <button type="submit">Load chat widget</button>
+      </form>
+      <div class="status" id="status"></div>
+    </section>
+  </main>
+
+  <footer>Demo Store is a local test page — not a real shop.</footer>
+
+  <script>
+    // Local backend that serves the API, sockets and the widget bundle
+    var API_URL = 'http://localhost:5000';
+    var STORAGE_KEY = 'demo_site_tenant_id';
+    var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    var form = document.getElementById('tenant-form');
+    var input = document.getElementById('tenant-id');
+    var statusEl = document.getElementById('status');
+
+    function getSaved() {
+      try { return localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { return ''; }
+    }
+
+    function loadWidget(tenantId) {
+      window.ChatyConfig = { tenantId: tenantId, apiUrl: API_URL };
+      var s = document.createElement('script');
+      s.src = API_URL + '/widget/chat-widget.bundle.js';
+      s.async = true;
+      s.onload = function () { statusEl.innerHTML = 'Widget loaded for tenant <code>' + tenantId + '</code>. Use the chat bubble in the corner.'; };
+      s.onerror = function () { statusEl.textContent = 'Could not load the widget. Is the backend running on ' + API_URL + '?'; };
+      document.body.appendChild(s);
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var id = input.value.trim();
+      if (!UUID_RE.test(id)) {
+        statusEl.textContent = 'That doesn\'t look like a Tenant ID (it should be a UUID).';
+        return;
+      }
+      try { localStorage.setItem(STORAGE_KEY, id); } catch (err) {}
+      // Reload so the widget starts cleanly with the new tenant
+      location.reload();
+    });
+
+    var saved = getSaved();
+    if (saved) {
+      input.value = saved;
+      loadWidget(saved);
+    } else {
+      statusEl.textContent = 'No Tenant ID yet: sign up in the dashboard first.';
+    }
+  </script>
+</body>
+</html>

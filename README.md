@@ -1,188 +1,156 @@
-# KnowBridge Chat Support System
+# Chaty
 
-KnowBridge is a comprehensive, enterprise-grade multi-tenant AI Chat Support system. It enables SaaS providers, agencies, and enterprises to embed smart, AI-powered chat widgets across multiple isolated client websites, while managing all conversations, vector-based knowledge bases, and user data from a central backend.
-
----
-
-## 🏗️ System Architecture
-
-The project is split into three main components, all designed with strict **Tenant Isolation**:
-
-1. **`backend/` (Node.js, Express, Socket.IO, PostgreSQL + pgvector)**
-   The core API that handles multi-tenant authentication, realtime WebSockets, vector knowledge base searches via OpenAI (`text-embedding-3-small`), and data storage. It strictly validates incoming widget requests by matching the HTTP `Origin` against the tenant's registered domain to prevent data leaks.
-
-2. **`admin-dashboard/` (React, Vite, Tailwind CSS)**
-   The control panel for tenant admins. Admins can log in, view live chat conversations in real-time, configure their AI knowledge base (uploading PDFs/Docs to create vector embeddings), and generate the embed code for their widget.
-
-3. **`KnowBridge-chat-widget/` (React, Webpack)**
-   A lightweight, embeddable React application bundled into a single JS file. It gets injected into client websites and connects to the backend via WebSockets to provide end-users with AI-driven or human-driven customer support.
-
-> 🗺️ **Visual Architecture Diagrams:** To see a detailed, interactive mapping of the entire system's runtime flow, data pipeline, and API request routing, open the HTML files inside the `Architecture Diagram/` folder in your browser!
+Chaty is a multi-tenant AI support chat platform. A business signs up, adds its help content to a knowledge base, and embeds a chat widget on its website. Visitors get answers generated from that business's own documents, and support agents take over live chats from an admin dashboard when the AI can't help.
 
 ---
 
-## 🛠️ Prerequisites & Installation
+## Project layout
 
-Before you start, ensure you have the following installed on your machine:
-*   **Node.js** (v18 or higher)
-*   **PostgreSQL** (v15 or higher) with the **`pgvector`** extension installed. (Crucial for AI knowledge base similarity search).
-*   **Redis** (Optional but recommended for session/caching).
-*   **OpenAI API Key** (Required for the AI chat responses and embedding generation).
+| Folder | Stack | What it is |
+|---|---|---|
+| `backend/` | Node.js, Express, Socket.IO, PostgreSQL + pgvector | API, auth, real-time chat, knowledge-base search (RAG) |
+| `admin-dashboard/` | React, Vite, Tailwind CSS | Control panel for each tenant: chats, knowledge base, team, settings |
+| `chat-widget/` | React, Webpack | The embeddable widget, built into a single `chat-widget.bundle.js` |
+| `demo-site/` | Plain HTML + tiny Node server | Local test website that embeds the widget |
+| `landing-page/` | HTML | Marketing/demo page with the widget |
+| `Architecture Diagram/` | HTML | Diagrams of the runtime, data pipeline and request flow |
 
-*(Note: You can easily run PostgreSQL with pgvector and Redis using the provided `docker-compose.yml` file)*
+### How a chat works
 
-### 1. Install All Dependencies (One-Click)
-Because this is a monorepo with three separate projects, you can install everything at once from the root directory using the root `package.json`:
+1. A tenant signs up in the dashboard and registers the **website domain** where the widget will run.
+2. The widget is embedded on that site with the tenant's public `tenantId`.
+3. The backend only accepts widget traffic whose browser `Origin` matches the tenant's domain (`localhost` is also allowed while `NODE_ENV` is not `production`).
+4. Each visitor message is answered from the tenant's own knowledge base: the question is embedded with OpenAI `text-embedding-3-small`, the closest chunks are found with pgvector (always filtered by `tenant_id`), and the model answers only from them.
+5. If the visitor asks for a human, the chat is handed to the tenant's agents, who see it live in the dashboard.
+
+---
+
+## Prerequisites
+
+- **Node.js 22 LTS** (or 18+)
+- **PostgreSQL 15+ with the `pgvector` extension**: either [Supabase](https://supabase.com) (free tier works; pgvector is built in) or the included `docker-compose.yml`
+- **OpenAI API key** for AI answers and document embeddings
+
+Install everything from the repo root:
+
 ```bash
 npm run install:all
 ```
-*(This will automatically install dependencies for the backend, admin-dashboard, and chat-widget).*
-
-### 2. Optional: Run Database via Docker
-If you don't want to install PostgreSQL locally, you can use the included Docker configuration to spin up a PostgreSQL instance (pre-loaded with the `pgvector` extension) and a Redis instance:
-```bash
-docker-compose up -d
-```
 
 ---
 
-## ⚙️ 1. Backend Setup & Configuration
+## 1. Database
 
-### Step 1: Database Setup
-1. Open your local PostgreSQL instance (or the Docker container via pgAdmin/psql) and create a new database.
-2. Ensure the `pgvector` extension is enabled on this database (required for vector embeddings):
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS vector;
-   ```
-3. The backend uses raw SQL migrations located in `backend/database/migrations/`. You must run these files against your database to create the required tables (`tenants`, `agents`, `conversations`, `messages`, `document_chunks`).
+Apply the migrations in `backend/database/migrations/` in order:
 
-### Step 2: Environment Variables
-1. Copy the example `.env` file:
-   ```bash
-   cd backend
-   cp .env.example .env
-   ```
-2. Open `backend/.env` and fill in the required variables:
-   *   `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_PORT`: Your PostgreSQL credentials.
-   *   `JWT_SECRET`: A secure, random 32+ character string.
-   *   `OPENAI_API_KEY`: Your OpenAI API key starting with `sk-...`.
-   *   `CORS_ORIGIN`: A comma-separated list of allowed domains (e.g., `http://localhost:3000,http://localhost:8000`).
+- `001_initial_schema.sql`: tenants, users, agents, chats, messages, documents, document chunks, settings, crawl jobs
+- `002_restore_columns_used_by_code.sql`: feedback and notifications tables, extra columns, and the HNSW vector index
 
-### Step 3: Run the Backend
-You can test the database connection using the provided test script:
+Either run `npm run migrate` from `backend/` once `.env` is set up, or paste both files into the Supabase SQL editor.
+
+**Supabase only:** enable Row Level Security on every table in the `public` schema (no policies needed). The backend connects as the `postgres` role, which bypasses RLS, while Supabase's public Data API is then blocked from reading your data.
+
+## 2. Backend
+
+Create `backend/.env`:
+
 ```bash
-node database/test_db.js
+NODE_ENV=development
+PORT=5000
+
+# Supabase: Dashboard → Connect → Session pooler
+DB_HOST=aws-0-<region>.pooler.supabase.com
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=postgres.<project-ref>
+DB_PASSWORD=<database password>
+DB_SSL=true
+DB_SSL_REJECT_UNAUTHORIZED=false
+DB_POOL_MAX=10
+
+OPENAI_API_KEY=<your OpenAI key>
+
+# Any two long random strings
+JWT_SECRET=<random string>
+CHAT_AUTH_SECRET=<random string>
+
+# Browser origins allowed to call the API (dashboard, test site)
+CORS_ORIGIN=http://localhost:8000,http://localhost:3000
+SOCKET_IO_CORS_ORIGIN=http://localhost:8000,http://localhost:3000
+
+REDIS_ENABLED=false
 ```
-If successful, start the backend development server:
+
+Use the Supabase **session pooler**, not the direct connection; the direct host is IPv6-only.
+
+Start it:
+
 ```bash
-npm run dev
-# OR from the root directory: npm run dev:backend
+npm run dev:backend
 ```
-*The backend will run on `http://localhost:5000`.*
 
----
+The API runs on `http://localhost:5000`, and `GET /health` reports database status.
 
-## 🖥️ 2. Admin Dashboard Setup
+## 3. Admin dashboard
 
-### Step 1: Environment Variables
-1. Navigate to the admin dashboard and copy the `.env` file:
-   ```bash
-   cd admin-dashboard
-   cp .env.example .env
-   ```
-2. Verify that `VITE_API_URL` and `VITE_SOCKET_URL` point to your backend (default is `http://localhost:5000`).
+Create `admin-dashboard/.env`:
 
-### Step 2: Run the Dashboard
-Because this is a multi-tenant system, you might want to run multiple instances of the dashboard to test different tenant accounts.
-
-To start a single instance on port 8000:
 ```bash
-npm run dev -- --port=8000
-# OR from the root directory: npm run dev:admin
+VITE_API_URL=http://localhost:5000
+VITE_SOCKET_URL=http://localhost:5000
 ```
-*The Admin Dashboard will run on `http://localhost:8000`.*
 
-*(Note: The Admin Dashboard dynamically relies on the backend `localhost:5000` for authentication and WebSocket connections. Ensure the backend is running).*
-
----
-
-## 💬 3. Chat Widget Setup
-
-### Step 1: Build the Widget Bundle
-The chat widget must be bundled into a single JavaScript file so it can be embedded into client websites.
 ```bash
-cd KnowBridge-chat-widget
+npm run dev:admin
+```
+
+Open `http://localhost:8000`, choose **Create an account**, and enter your company, website domain, name, email and password. This creates your tenant and its first admin. The domain can be changed later in **Settings → Website**.
+
+## 4. Chat widget
+
+Build the bundle and copy it to where the backend serves it:
+
+```bash
+cd chat-widget
 npm run build:bundle
+cp dist/chat-widget.bundle.js ../backend/public/
 ```
-This command will use Webpack to generate `chat-widget.bundle.js` inside the `dist/` directory.
 
-### Step 2: Serve the Widget
-For development and testing, copy the generated `chat-widget.bundle.js` into the `backend/public/` folder. The backend is configured to statically serve this file at:
-`http://localhost:5000/widget/chat-widget.bundle.js`
+The backend serves it at `http://localhost:5000/widget/chat-widget.bundle.js`.
 
----
+## 5. Try it on the local test site
 
-## 🏢 4. Multi-Tenant Flow & Creating a Tenant
+```bash
+npm run dev:demo
+```
 
-Because KnowBridge is a multi-tenant SaaS platform, every client company (Tenant) must have a unique `Tenant ID`. This ID is the "glue" that connects the Chat Widget on the client's website to their specific Admin Dashboard.
+Open `http://localhost:3000`, paste your Tenant ID (from **Settings → Widget Embed** in the dashboard) and click **Load chat widget**. Messages sent from the widget appear live in the dashboard's **Chats** page.
 
-### How the Flow Works:
-1. **The Widget:** The Chat Widget is embedded on the client's website and configured with their specific `Tenant ID`.
-2. **The Request:** When an end-user sends a message, the widget sends the `Tenant ID` and the browser's `Origin` URL to the backend.
-3. **The Validation:** The backend intercepts this request, checks the PostgreSQL database, and verifies that the `Origin` URL exactly matches the domain registered to that `Tenant ID`.
-4. **The Routing:** Once validated, the message is saved to that tenant's database partition and broadcasted via WebSockets **only** to Admin Dashboards currently logged in under that same `Tenant ID`.
-5. **The AI:** If the user asks an AI question, the backend uses the `Tenant ID` to strictly filter the `pgvector` database, ensuring the AI only generates answers using that specific company's PDF documents.
+### Embedding on a real website
 
-### How to Create a New Tenant:
-To manually create a new tenant for testing:
-
-1. Open your PostgreSQL database.
-2. Insert a new company into the `tenants` table (a UUID will be generated automatically, or you can supply one):
-   ```sql
-   INSERT INTO tenants (id, name, domain, status) 
-   VALUES (gen_random_uuid(), 'My Test Company', 'localhost', 'active') 
-   RETURNING id;
-   ```
-   *(Note down the returned `id` — this is your `Tenant ID`!)*
-3. Create an admin account linked to this new tenant:
-   ```sql
-   INSERT INTO agents (id, tenant_id, name, email, password_hash, role, status) 
-   VALUES (gen_random_uuid(), 'YOUR_TENANT_ID_HERE', 'Admin Name', 'admin@test.com', 'bcrypt_hash_here', 'admin', 'active');
-   ```
-
----
-
-## 🚀 5. End-to-End Testing (How to Embed)
-
-To test the entire flow, embed the widget into a frontend project (HTML, React, Next.js, etc.).
-
-1. Use the `Tenant ID` you generated in the steps above.
-2. In your client website's HTML `<body>`, add the following snippet:
+Copy the snippet from **Settings → Widget Embed**:
 
 ```html
-<!-- KnowBridge Chat Widget Embed -->
-<div id="KnowBridge-chat-root"></div>
 <script>
-  window.CHAT_CONFIG = {
-    tenantId: "YOUR_TENANT_UUID_HERE",
-    apiUrl: "http://localhost:5000",
-    theme: "blue" // options: blue, green, purple, etc.
+  window.ChatyConfig = {
+    tenantId: "YOUR_TENANT_ID",
+    apiUrl: "https://your-backend.example.com"
   };
-  
-  window.addEventListener('load', () => {
-    if (window.KnowBridgeChat) window.KnowBridgeChat.init();
-  });
 </script>
-<script src="http://localhost:5000/widget/chat-widget.bundle.js" async></script>
+<script src="https://your-backend.example.com/widget/chat-widget.bundle.js" async></script>
 ```
 
-4. Open the client website in your browser.
-5. Open the Admin Dashboard (`http://localhost:8000`) and log in.
-6. Type a message in the client website widget. It will instantly appear in the Admin Dashboard via WebSockets.
+The site's domain must match the one registered in **Settings → Website**.
 
 ---
 
-## 🔒 Security Notes for Production
-*   **Origin Validation:** The backend uses `validateTenantOrigin` middleware. It ensures that requests using a specific `tenantId` originate strictly from the domain registered to that tenant in the database.
-*   **No Secrets in Widget:** The Chat Widget (`CHAT_CONFIG`) requires only the public `tenantId`. Never inject API keys or JWTs into the client widget.
-*   **Vector Isolation:** All AI knowledge base queries strictly filter by `tenant_id` at the database level (`pgvector`) to prevent cross-tenant data contamination.
+## Security notes
+
+- **Tenant isolation:** every query is filtered by `tenant_id`, and both visitors and agents can only join chat rooms that belong to their own tenant.
+- **Origin check:** widget requests and sockets must come from the tenant's registered domain. The `localhost` exception is disabled when `NODE_ENV=production`.
+- **No secrets in the widget:** `ChatyConfig` only contains the public `tenantId` and API URL.
+- **Dashboard auth:** JWTs issued by `/api/auth/login` and `/api/auth/signup`. The tenant always comes from the agent's database record, never from the client.
+
+## Not yet implemented
+
+These admin endpoints return `501 Not Implemented`: reviews, feedback analysis, agent edit/delete/stats, "my chats" and date-range stats.

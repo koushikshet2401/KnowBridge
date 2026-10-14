@@ -7,8 +7,8 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'chat-widget.bundle.js',
-    // Plain IIFE — no UMD wrapper that would overwrite window.KnowBridgeChat.
-    // index.js sets window.KnowBridgeChat itself as a side-effect.
+    // Plain IIFE — no UMD wrapper that would overwrite window.ChatyChat.
+    // index.js sets window.ChatyChat itself as a side-effect.
     iife: true,
     clean: true,
   },

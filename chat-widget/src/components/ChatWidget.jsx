@@ -10,7 +10,6 @@ const ChatWidget = ({
   userName,
   userEmail,
   apiUrl     = '',    // ✅ empty — NOT 'http://127.0.0.1:5000'
-  laravelUrl = '',    // ✅ empty — NOT 'http://127.0.0.1:8000'
   theme      = 'purple',
   position   = 'bottom-right',
   customTrigger = false,
@@ -62,7 +61,7 @@ const ChatWidget = ({
       const socket = connectSocket(String(apiUrl || ''), String(userId || ''));
 
       if (!socket) {
-        console.error('KnowBridge: Socket connection failed — apiUrl may be missing');
+        console.error('Chaty: Socket connection failed — apiUrl may be missing');
         return;
       }
 
@@ -143,7 +142,7 @@ const ChatWidget = ({
   };
 
   return (
-    <div className={`KnowBridge-chat-widget theme-${safeTheme} position-${safePosition} ${safeCustomTrigger ? 'custom-trigger-mode' : ''} ${isExpanded ? 'KnowBridge-chat-expanded' : ''}`}>
+    <div className={`chat-widget theme-${safeTheme} position-${safePosition} ${safeCustomTrigger ? 'custom-trigger-mode' : ''} ${isExpanded ? 'chaty-chat-expanded' : ''}`}>
       {!safeCustomTrigger && (
         <ChatBubble
           isOpen={safeIsOpen}
@@ -168,7 +167,6 @@ const ChatWidget = ({
           chatId={chatId    ? String(chatId)    : null}
           messages={agentMessages}
           apiUrl={apiUrl    ? String(apiUrl)    : ''}
-          laravelUrl={laravelUrl ? String(laravelUrl) : ''}
           socket={socketRef.current}
           isConnected={Boolean(isConnected)}
           onClose={onClose}

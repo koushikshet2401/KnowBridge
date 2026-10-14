@@ -9,16 +9,9 @@ const logger = require('./src/utils/logger');
 const pool = require('./src/config/database');
 
 /**
- * Express Server Setup - FIXED VERSION
- * 
+ * Express Server Setup
+ *
  * Location: backend/server.js
- * Replace your existing server.js with this file
- * 
- * KEY CHANGES:
- * - Removed standalone auth routes (Laravel handles authentication)
- * - Added health check endpoint
- * - Improved error handling
- * - Better environment variable validation
  */
 
 // Load environment variables
@@ -43,7 +36,7 @@ const server = http.createServer(app);
 // ----------------
 const io = socketIo(server, {
   cors: {
-    origin: process.env.SOCKET_IO_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173', 'https://knowbridge-dashboard.onrender.com'],
+    origin: process.env.SOCKET_IO_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173'],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -63,10 +56,10 @@ app.use(helmet({
 
 // CORS
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173', 'https://knowbridge-dashboard.onrender.com'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173'],
   credentials: process.env.CORS_CREDENTIALS !== 'false',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: process.env.CORS_ALLOWED_HEADERS?.split(',') || ['Content-Type', 'Authorization', 'X-KnowBridge-Token', 'X-Student-Token', 'X-Student-Id', 'X-Client-Domain', 'X-EduCtrl-Token', 'X-Tenant-ID']
+  allowedHeaders: process.env.CORS_ALLOWED_HEADERS?.split(',') || ['Content-Type', 'Authorization', 'X-Chaty-Token', 'X-Client-Domain', 'X-Tenant-ID']
 }));
 
 const {
@@ -127,7 +120,7 @@ app.get('/health', async (req, res) => {
 // API version info
 app.get('/api', (req, res) => {
   res.json({
-    name: 'KnowBridge Chat Support API',
+    name: 'Chaty Chat Support API',
     version: '1.0.0',
     status: 'running',
     endpoints: {
@@ -136,7 +129,7 @@ app.get('/api', (req, res) => {
       chat: '/api/chat/*',
       knowledge: '/api/knowledge-base/*'
     },
-    authentication: 'Laravel SSO',
+    authentication: 'JWT (POST /api/auth/login)',
     documentation: '/api/docs'
   });
 });
@@ -145,11 +138,7 @@ app.get('/api', (req, res) => {
 // API Routes
 // ----------------
 
-// REMOVED: Standalone authentication routes
-// Authentication is handled by Laravel
-// const authRoutes = require('./src/routes/auth.routes'); ❌ REMOVED
-
-// Admin routes (require Laravel token)
+// Auth + admin routes (admin routes require a JWT from /api/auth/login)
 const authRoutes = require('./src/routes/auth.routes');
 const adminRoutes = require('./src/routes/admin.routes');
 const notificationRoutes = require('./src/routes/notification.routes');
@@ -158,7 +147,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/notifications', notificationRoutes);
 
-// Chat routes (for students)
+// Chat routes (public, used by the embeddable widget)
 const chatRoutes = require('./src/routes/chat.routes');
 app.use('/api/chat', chatRoutes);
 
@@ -211,28 +200,21 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   logger.info('='.repeat(60));
-  logger.info('🚀 KnowBridge Chat Support Backend Started');
+  logger.info('🚀 Chaty Chat Support Backend Started');
   logger.info('='.repeat(60));
   logger.info(`📍 Server running on: http://localhost:${PORT}`);
   logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`💾 Database: ${process.env.DB_NAME} @ ${process.env.DB_HOST}:${process.env.DB_PORT}`);
-  if (process.env.LARAVEL_API_URL) logger.info(`🔗 Laravel API: ${process.env.LARAVEL_API_URL}`);
-  else logger.info(`🔗 Laravel API: Disabled (Standalone mode)`);
   logger.info(`🔌 Socket.IO: Enabled`);
   logger.info('='.repeat(60));
   logger.info('Available endpoints:');
   logger.info(`  GET  /health           - Health check`);
   logger.info(`  GET  /api              - API info`);
-  logger.info(`  POST /api/admin/*      - Admin routes (requires Laravel token)`);
-  logger.info(`  POST /api/chat/*       - Student chat routes`);
+  logger.info(`  POST /api/admin/*      - Admin routes (requires login token)`);
+  logger.info(`  POST /api/chat/*       - Widget chat routes`);
   logger.info(`  GET  /api/knowledge-base/* - Knowledge base`);
   logger.info('='.repeat(60));
   
-  // Warn if in demo/development mode
-  if (process.env.MOCK_LARAVEL_AUTH === 'true') {
-    logger.warn('⚠️  WARNING: Mock authentication is ENABLED');
-    logger.warn('⚠️  This should NEVER be enabled in production!');
-  }
 });
 
 // Graceful shutdown

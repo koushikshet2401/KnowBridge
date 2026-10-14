@@ -1,4 +1,4 @@
-# KnowBridge Admin Dashboard - Version 2.0 Changelog
+# Chaty Admin Dashboard - Version 2.0 Changelog
 
 ## 🎉 What's New in V2.0
 

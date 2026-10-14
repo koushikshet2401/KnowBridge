@@ -17,6 +17,7 @@ const { validateTenantOrigin } = require('../middleware/tenant');
 const OpenAI = require('openai');
 const pool = require('../config/database');
 const logger = require('../utils/logger');
+const { emitToChat } = require('../socket/emit');
 
 // Security: ALL requests to AI endpoints must validate their Origin
 // against the registered tenant domain to prevent cross-tenant AI interrogation.
@@ -123,7 +124,7 @@ router.post('/ai/query',
           // Emit socket event so admin dashboard receives user message in real-time
           const io = req.app.get('io');
           if (io) {
-            io.to(`chat_${chatId}`).emit('new-message', {
+            emitToChat(chatId, 'new-message', {
               chatId,
               message: savedUserMsg,
               timestamp: new Date()
@@ -145,7 +146,7 @@ router.post('/ai/query',
     if (!context) {
       logger.warn(`No KB context found for question: "${question}"`);
       
-      const noContextAnswer = "I'm sorry, I couldn't find any information about that in our knowledge base. Is there anything else I can help you with regarding KnowBridge?";
+      const noContextAnswer = "I'm sorry, I couldn't find any information about that in our knowledge base. Is there anything else I can help you with?";
       
       // Save AI "no context" answer if chatId is provided
       if (chatId) {
@@ -161,7 +162,7 @@ router.post('/ai/query',
           // Emit socket event so admin dashboard receives "no context" AI answer in real-time
           const io = req.app.get('io');
           if (io) {
-            io.to(`chat_${chatId}`).emit('new-message', {
+            emitToChat(chatId, 'new-message', {
               chatId,
               message: savedAiMsg,
               timestamp: new Date()
@@ -184,7 +185,7 @@ router.post('/ai/query',
     const messages = [
       {
         role: 'system',
-        content: `You are KnowBridge's AI Support Assistant. 
+        content: `You are a helpful AI Support Assistant for this website. 
         
 STRICT RULE: You MUST answer the user's question ONLY using the provided Knowledge Base context below.
 If the answer is NOT in the context, politely state that you don't have that information. 
@@ -193,7 +194,7 @@ DO NOT offer to connect to a human agent unless specifically asked.
 KNOWLEDGE BASE CONTEXT:
 ${context}
 
-Always be friendly and professional. If the user asks something irrelevant, guide them back to KnowBridge topics.`
+Always be friendly and professional. If the user asks something irrelevant, politely guide them back to topics this website can help with.`
       }
     ];
 
@@ -230,7 +231,7 @@ Always be friendly and professional. If the user asks something irrelevant, guid
           // Emit socket event so admin dashboard receives AI answer in real-time
           const io = req.app.get('io');
           if (io) {
-            io.to(`chat_${chatId}`).emit('new-message', {
+            emitToChat(chatId, 'new-message', {
               chatId,
               message: savedAiMsg,
               timestamp: new Date()

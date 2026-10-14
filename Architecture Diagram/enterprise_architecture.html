@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KnowBridge - Enterprise SaaS Architecture</title>
+    <title>Chaty - Enterprise SaaS Architecture</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <style>
         :root {
@@ -135,7 +135,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>KnowBridge</h1>
+            <h1>Chaty</h1>
             <p>Multi-Tenant SaaS Chatbot Architecture</p>
         </header>
 
@@ -148,20 +148,20 @@
                 flowchart TD
                     %% Client Websites
                     subgraph ClientA ["Client A (abc.com)"]
-                        WidgetA["Standardized KnowBridge Widget"]
+                        WidgetA["Standardized Chaty Widget"]
                         ConfigA["Config: TENANT_ABC"]
                         WidgetA --- ConfigA
                     end
 
                     subgraph ClientB ["Client B (xyz.com)"]
-                        WidgetB["Standardized KnowBridge Widget"]
+                        WidgetB["Standardized Chaty Widget"]
                         ConfigB["Config: TENANT_XYZ"]
                         WidgetB --- ConfigB
                     end
 
                     %% Security Boundary
                     subgraph BackendBoundary ["Strict Security Boundary"]
-                        subgraph Backend ["KnowBridge Backend Server"]
+                        subgraph Backend ["Chaty Backend Server"]
                             API["HTTP REST API & Rate Limiters"]
                             Socket["Socket.IO Server"]
                             TenantAuth{"Server-Side Tenant Validation"}
@@ -295,8 +295,8 @@
                     end
 
                     subgraph LiveSystem ["Live Production System"]
-                        C3 --> D1[Website Loads KnowBridge Widget]
-                        D1 --> D2[Widget Connects to KnowBridge Backend]
+                        C3 --> D1[Website Loads Chaty Widget]
+                        D1 --> D2[Widget Connects to Chaty Backend]
                         D2 --> D3[Backend Validates Tenant Origin]
                         D3 --> D4[Conversations Stream to Tenant Database]
                         D4 --> D5[Client Admin Views Data in Dashboard]
@@ -339,9 +339,9 @@
                 <div>
                     <h3>What We Sell (Client Deliverables)</h3>
                     <div class="box-item" style="background: #f8fafc; margin-bottom: 20px;">
-                        <p style="margin-top:0;">When a client purchases KnowBridge, they receive access to the following configuration and assets:</p>
+                        <p style="margin-top:0;">When a client purchases Chaty, they receive access to the following configuration and assets:</p>
                         <ul style="padding-left: 20px; line-height: 1.8;">
-                            <li>Standardized KnowBridge Chatbot Widget</li>
+                            <li>Standardized Chaty Chatbot Widget</li>
                             <li>Client-specific Tenant allocation</li>
                             <li>Unique Tenant Configuration script</li>
                             <li>Client Admin Account(s)</li>

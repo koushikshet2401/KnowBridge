@@ -9,7 +9,7 @@ http.createServer((req, res) => {
     
     if (filePath === './') {
         filePath = './index.html';
-    } else if (req.url.startsWith('/KnowBridge-chat-widget')) {
+    } else if (req.url.startsWith('/chat-widget')) {
         // Resolve requests for the widget to the parent directory
         filePath = path.join(__dirname, '..', req.url);
     } else {

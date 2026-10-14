@@ -1,7 +1,7 @@
 {
-  "name": "knowbridge-landing-page",
+  "name": "chaty-landing-page",
   "version": "1.0.0",
-  "description": "Demo landing page for KnowBridge chatbot widget",
+  "description": "Demo landing page for Chaty chatbot widget",
   "scripts": {
     "dev": "node server.js"
   },

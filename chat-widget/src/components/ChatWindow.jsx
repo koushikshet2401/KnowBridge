@@ -57,7 +57,7 @@ const ChatWindow = ({
   socket, isConnected,
   onClose, onChatCreated, onNewMessage,
   onBack, isExpanded, onToggleExpand,
-  apiUrl, laravelUrl
+  apiUrl
 }) => {
   const [messages, setMessages]     = useState([]);
   const [inputText, setInputText]   = useState('');
@@ -247,7 +247,7 @@ const ChatWindow = ({
           </button>
           <div className="bot-avatar-header"><Bot size={20} /></div>
           <div>
-            <div className="bot-name">KnowBridge Support</div>
+            <div className="bot-name">Chaty Support</div>
             <div className="bot-status">
               <span className="status-dot" style={{ color: isConnected ? '#10b981' : '#6b7280' }}>●</span>
               {isConnected ? 'Online' : 'Connecting...'}
@@ -282,7 +282,7 @@ const ChatWindow = ({
           <div className="analyzing-state">
             <div className="bot-avatar-small"><Bot size={16} /></div>
             <div className="analyzing-content">
-              <div className="analyzing-label">KnowBridge</div>
+              <div className="analyzing-label">Chaty</div>
               <div className="analyzing-text">
                 <span className="analyzing-icon">✓</span> Analyzing...
               </div>
@@ -317,7 +317,7 @@ const ChatWindow = ({
         </form>
       )}
 
-      <div className="chat-footer">KnowBridge can make mistakes. Double-check replies.</div>
+      <div className="chat-footer">Chaty can make mistakes. Double-check replies.</div>
     </div>
   );
 };
@@ -331,7 +331,7 @@ const MessageBubble = ({ message, onFeedback, onSuggestionClick }) => {
       <div className="message-wrapper bot">
         <div className="message-avatar"><Bot size={16} /></div>
         <div className="message-content-wrapper">
-          <div className="message-sender">KnowBridge</div>
+          <div className="message-sender">Chaty</div>
           <div className="message-bubble bot-bubble">
             <div className="message-text">{String(message)}</div>
           </div>
@@ -383,7 +383,7 @@ const MessageBubble = ({ message, onFeedback, onSuggestionClick }) => {
       )}
 
       <div className="message-content-wrapper">
-        {!isUser && <div className="message-sender">KnowBridge</div>}
+        {!isUser && <div className="message-sender">Chaty</div>}
 
         <div className={`message-bubble ${isUser ? 'user-bubble' : 'bot-bubble'}`}>
           <div

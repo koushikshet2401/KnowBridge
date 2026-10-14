@@ -20,7 +20,7 @@ class EmailService {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KnowBridge Support</title>
+  <title>Chaty Support</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
@@ -77,20 +77,15 @@ class EmailService {
       </div>
       <!-- Footer -->
       <div class="footer">
-        <div class="footer-brand">KnowBridge CRM</div>
-        <div class="footer-links">
-          <a href="https://www.KnowBridge.com">Website</a>
-          <a href="https://www.KnowBridge.com/knowledgebase">Knowledge Base</a>
-          <a href="mailto:info@KnowBridge.com">Contact Support</a>
-        </div>
+        <div class="footer-brand">Chaty</div>
         <div class="footer-copy">
-          © ${new Date().getFullYear()} KnowBridge. All rights reserved.<br>
-          This is an automated notification from the KnowBridge Support System.
+          © ${new Date().getFullYear()} Chaty. All rights reserved.<br>
+          This is an automated notification from the Chaty Support System.
         </div>
       </div>
     </div>
     <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:16px;">
-      You received this because you are a registered support agent on KnowBridge.
+      You received this because you are a registered support agent on Chaty.
     </p>
   </div>
 </body>
@@ -175,14 +170,14 @@ class EmailService {
 
     const html = this.getEmailBase(
       bodyContent,
-      `Action needed: "${userQuestion.slice(0, 60)}..." — KnowBridge Support`
+      `Action needed: "${userQuestion.slice(0, 60)}..." — Chaty Support`
     );
 
     try {
       const info = await this.transporter.sendMail({
-        from: `"${process.env.EMAIL_FROM_NAME || 'KnowBridge Support'}" <${process.env.SMTP_USER}>`,
+        from: `"${process.env.EMAIL_FROM_NAME || 'Chaty Support'}" <${process.env.SMTP_USER}>`,
         to:   agentEmails.join(', '),
-        subject: `🔔 [KnowBridge] Human Support Needed — ${clientDomain || 'Unknown Domain'}`,
+        subject: `🔔 [Chaty] Human Support Needed — ${clientDomain || 'Unknown Domain'}`,
         html,
         text: `Human support needed!\n\nUser: ${userName}\nQuestion: "${userQuestion}"\nDomain: ${clientDomain}\n\nOpen chat: ${chatUrl}`
       });
@@ -214,9 +209,9 @@ class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"KnowBridge Support" <${process.env.SMTP_USER}>`,
+        from: `"Chaty Support" <${process.env.SMTP_USER}>`,
         to:      agentEmail,
-        subject: `💬 [KnowBridge] New Chat Assigned — ${userName || 'Anonymous'}`,
+        subject: `💬 [Chaty] New Chat Assigned — ${userName || 'Anonymous'}`,
         html:    this.getEmailBase(bodyContent, `New chat assigned from ${userName}`)
       });
       logger.info(`✅ Assignment email sent to ${agentEmail}`);
@@ -228,17 +223,17 @@ class EmailService {
   async sendTestEmail(toEmail) {
     const body = `
       <p class="greeting">✅ SMTP Test Successful!</p>
-      <p class="intro">Your email configuration is working correctly. KnowBridge will now send professional notifications to your team.</p>
+      <p class="intro">Your email configuration is working correctly. Chaty will now send professional notifications to your team.</p>
       <div class="cta-section">
-        <a href="https://www.KnowBridge.com" class="cta-button">Visit KnowBridge</a>
+        <a href="${process.env.DASHBOARD_URL || 'http://localhost:8000'}" class="cta-button">Open Dashboard</a>
       </div>
     `;
     try {
       await this.transporter.sendMail({
-        from:    `"KnowBridge Support" <${process.env.SMTP_USER}>`,
+        from:    `"Chaty Support" <${process.env.SMTP_USER}>`,
         to:      toEmail,
-        subject: '✅ KnowBridge Email Test — SMTP Working!',
-        html:    this.getEmailBase(body, 'KnowBridge email is configured correctly')
+        subject: '✅ Chaty Email Test — SMTP Working!',
+        html:    this.getEmailBase(body, 'Chaty email is configured correctly')
       });
       return { success: true };
     } catch (error) {

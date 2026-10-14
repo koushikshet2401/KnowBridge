@@ -4,14 +4,14 @@ import ChatWidget from './components/ChatWidget';
 import './components/ChatWidget.css';
 
 /**
- * KnowBridge Chat Widget — Universal Entry Point
+ * Chaty Chat Widget — Universal Entry Point
  * Compatible with Node, PHP, Rails, Rust, Java, React, HTML.
  */
 
 let _setOpen = null;
 
 const initWidget = (customConfig) => {
-  const config = Object.assign({}, window.CHAT_CONFIG || window.KnowBridgeConfig || {}, customConfig || {});
+  const config = Object.assign({}, window.CHAT_CONFIG || window.ChatyConfig || {}, customConfig || {});
 
   const tenantId = config.tenantId;
   const apiUrl   = config.apiUrl || 'http://localhost:5000';
@@ -19,13 +19,13 @@ const initWidget = (customConfig) => {
   const position = config.position || 'bottom-right';
 
   if (!tenantId) {
-    console.error('KnowBridge Chat: tenantId is missing! Please provide it in window.KnowBridgeConfig.');
+    console.error('Chaty Chat: tenantId is missing! Please provide it in window.ChatyConfig.');
     return;
   }
 
   let userId = (config.user && config.user.id) || config.userId || '';
   if (!userId) {
-    const domainKey = `KnowBridge_guest_id_${tenantId}`;
+    const domainKey = `chaty_guest_id_${tenantId}`;
     userId = localStorage.getItem(domainKey);
     if (!userId) {
       userId = `guest_${Math.random().toString(36).substring(2, 15)}_${Date.now()}`;
@@ -37,10 +37,10 @@ const initWidget = (customConfig) => {
   const userEmail = (config.user && config.user.email) || config.userEmail || '';
 
   // Auto-inject root element if it doesn't exist
-  let rootEl = document.getElementById('KnowBridge-chat-root');
+  let rootEl = document.getElementById('chaty-chat-root');
   if (!rootEl) {
     rootEl = document.createElement('div');
-    rootEl.id = 'KnowBridge-chat-root';
+    rootEl.id = 'chaty-chat-root';
     document.body.appendChild(rootEl);
   }
 
@@ -64,18 +64,18 @@ const initWidget = (customConfig) => {
   };
 
   ReactDOM.render(<WidgetWrapper />, rootEl);
-  console.log('✅ KnowBridge Chat Widget mounted | Tenant:', tenantId);
+  console.log('✅ Chaty Chat Widget mounted | Tenant:', tenantId);
 };
 
-window.KnowBridgeChat = {
+window.ChatyChat = {
   init:    initWidget,
-  toggle:  () => _setOpen ? _setOpen(p => !p) : console.warn('KnowBridge: call init() first'),
+  toggle:  () => _setOpen ? _setOpen(p => !p) : console.warn('Chaty: call init() first'),
   open:    () => _setOpen && _setOpen(true),
   close:   () => _setOpen && _setOpen(false),
   version: '2.0.0'
 };
 
 // Auto-init if config is already present
-if (window.KnowBridgeConfig || window.CHAT_CONFIG) {
+if (window.ChatyConfig || window.CHAT_CONFIG) {
   initWidget();
 }

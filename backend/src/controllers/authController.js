@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const Agent = require('../models/Agent');
 const logger = require('../utils/logger');
+const { normalizeDomain } = require('../utils/domain');
 
 if (!process.env.JWT_SECRET) {
   logger.error('CRITICAL: JWT_SECRET environment variable is missing.');
@@ -111,7 +112,7 @@ exports.getMe = async (req, res) => {
  */
 exports.signup = async (req, res) => {
   try {
-    const { companyName, name, email, password } = req.body;
+    const { companyName, name, email, password, domain } = req.body;
     const pool = require('../config/database');
 
     if (!companyName || !name || !email || !password) {
@@ -119,6 +120,24 @@ exports.signup = async (req, res) => {
         success: false,
         error: 'Please provide companyName, name, email and password'
       });
+    }
+
+    // Website where the chat widget will be embedded (optional, can be set later in Settings)
+    const tenantDomain = normalizeDomain(domain);
+    if (tenantDomain === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter a valid website domain, e.g. acme.com'
+      });
+    }
+    if (tenantDomain) {
+      const taken = await pool.query('SELECT 1 FROM tenants WHERE domain = $1', [tenantDomain]);
+      if (taken.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'This website domain is already registered'
+        });
+      }
     }
 
     // Check if agent already exists
@@ -132,8 +151,8 @@ exports.signup = async (req, res) => {
 
     // Create Tenant first
     const tenantResult = await pool.query(
-      `INSERT INTO tenants (name) VALUES ($1) RETURNING id`,
-      [companyName]
+      `INSERT INTO tenants (name, domain) VALUES ($1, $2) RETURNING id`,
+      [companyName, tenantDomain]
     );
     const tenantId = tenantResult.rows[0].id;
 

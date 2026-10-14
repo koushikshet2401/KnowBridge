@@ -127,12 +127,12 @@ const KnowledgeBase = () => {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const token = localStorage.getItem('knowbridge_admin_token') || window.KNOWBRIDGE_AUTH?.token;
+      const token = localStorage.getItem('chaty_admin_token') || window.CHATY_AUTH?.token;
       
       const res = await fetch(`${API_URL}/api/admin/knowledge-base/upload`, {
         method: 'POST',
         headers: {
-          'X-KnowBridge-Token': token
+          'X-Chaty-Token': token
         },
         body: formData
       });
@@ -522,7 +522,7 @@ const KnowledgeBase = () => {
                   type="url"
                   value={crawlUrl}
                   onChange={e => setCrawlUrl(e.target.value)}
-                  placeholder="https://www.knowbridge.com/knowledgebase"
+                  placeholder="https://example.com/help"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   required
                 />
