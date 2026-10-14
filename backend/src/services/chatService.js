@@ -2,6 +2,7 @@ const pool         = require('../config/database');
 const logger       = require('../utils/logger');
 const aiService    = require('./aiService');
 const emailService = require('./emailService');
+const { emitToChat } = require('../socket/emit');
 
 class ChatService {
 
@@ -73,7 +74,7 @@ class ChatService {
       const userMessage = userMsg.rows[0];
 
       if (global.io) {
-        global.io.to(`chat_${chatId}`).emit('new-message', { chatId, message: { ...userMessage, chatId } });
+        emitToChat(chatId, 'new-message', { chatId, message: { ...userMessage, chatId } });
       }
 
       // ── Check for pending escalation confirmation ──
@@ -110,7 +111,7 @@ class ChatService {
             [chatId, "I'm connecting you with a human support agent who can help you right away. Please wait a moment..."]
           );
           if (global.io) {
-            global.io.to(`chat_${chatId}`).emit('new-message', { chatId, message: { ...confirmMsg.rows[0], chatId } });
+            emitToChat(chatId, 'new-message', { chatId, message: { ...confirmMsg.rows[0], chatId } });
           }
           return {
             message: confirmMsg.rows[0],
@@ -125,7 +126,7 @@ class ChatService {
             [chatId, "Okay, no problem! Is there anything else you need help with?"]
           );
           if (global.io) {
-            global.io.to(`chat_${chatId}`).emit('new-message', { chatId, message: { ...cancelMsg.rows[0], chatId } });
+            emitToChat(chatId, 'new-message', { chatId, message: { ...cancelMsg.rows[0], chatId } });
           }
           return {
             message: cancelMsg.rows[0],
@@ -176,7 +177,7 @@ class ChatService {
       const aiMessage = aiMsg.rows[0];
 
       if (global.io) {
-        global.io.to(`chat_${chatId}`).emit('new-message', {
+        emitToChat(chatId, 'new-message', {
           chatId,
           message: { ...aiMessage, chatId, suggestions: aiResult.suggestions || [] }
         });
@@ -215,9 +216,9 @@ class ChatService {
       );
       const chat = chatResult.rows[0];
 
-      // Get all admin agents for this tenant + super admins
+      // Notify every agent of this chat's tenant (never other tenants)
       const agentsResult = await pool.query(
-        `SELECT id, email, name, role FROM agents WHERE role = 'super_admin' OR tenant_id = $1`,
+        `SELECT id, email, name, role FROM agents WHERE tenant_id = $1`,
         [chat.tenant_id]
       );
       
@@ -323,7 +324,7 @@ class ChatService {
             improvedMessage = promptRow.rows[0];
 
             if (global.io) {
-              global.io.to(`chat_${chatId}`).emit('new-message', {
+              emitToChat(chatId, 'new-message', {
                 chatId,
                 message: { ...improvedMessage, chatId }
               });

@@ -1,5 +1,6 @@
 const logger = require('../utils/logger');
 const Agent = require('../models/Agent');
+const pool = require('../config/database');
 
 const setupAdminSocket = (io) => {
   const adminNamespace = io.of('/admin');
@@ -41,13 +42,26 @@ const setupAdminSocket = (io) => {
     }
 
     // Handle events
-    socket.on('join-chat', (chatId) => {
+    // The dashboard sends { chatId }; older callers send the bare id
+    const toChatId = (data) => (data && typeof data === 'object' ? data.chatId : data);
+
+    socket.on('join-chat', async (data) => {
+      const chatId = toChatId(data);
+      if (!chatId) return;
+      try {
+        // Agents may only watch chats that belong to their own tenant
+        const owns = await pool.query('SELECT 1 FROM chats WHERE id = $1 AND tenant_id = $2', [chatId, tenantId]);
+        if (owns.rows.length === 0) return;
+      } catch (e) {
+        return;
+      }
       socket.join(`chat:${chatId}`);
       logger.info(`Agent ${agentId} joined chat room: ${chatId}`);
     });
 
-    socket.on('leave-chat', (chatId) => {
-      socket.leave(`chat:${chatId}`);
+    socket.on('leave-chat', (data) => {
+      const chatId = toChatId(data);
+      if (chatId) socket.leave(`chat:${chatId}`);
     });
 
     socket.on('typing', ({ chatId, isTyping }) => {

@@ -3,7 +3,6 @@
  * 
  * Location: backend/src/routes/chat.routes.js
  * 
- * KEY FIX: Use authenticate middleware instead of verifySignature for /start
  */
 
 const express = require('express');
@@ -13,13 +12,10 @@ const upload = require('../middleware/upload');
 const { newChatLimiter, chatMessageLimiter } = require('../middleware/rateLimiter');
 const { validate } = require('../middleware/validate');
 const { chatSchemas, paramSchemas } = require('../validation/schemas');
-const { verifySignature } = require('../middleware/signature');
 const { authenticate } = require('../middleware/auth');
 const { validateTenantOrigin } = require('../middleware/tenant');
 
-// Note: Public widget routes rely on rate limiting instead of cryptographic signatures 
-// because the public browser cannot securely hold a secret key.
-// router.use(verifySignature);
+// Note: Public widget routes rely on rate limiting and origin checks; a browser cannot hold a secret key.
 
 // Security: ALL requests to the chat endpoints must validate their Origin
 // against the registered tenant domain to prevent cross-tenant AI interrogation.

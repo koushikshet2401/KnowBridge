@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import api from '../services/api'
-import { Eye, EyeOff, Save, UserPlus, Key, CheckCircle, AlertCircle, Loader } from 'lucide-react'
+import { Eye, EyeOff, Save, UserPlus, Key, CheckCircle, AlertCircle, Loader, Globe, Code } from 'lucide-react'
 
-// âœ… OUTSIDE component - prevents remount on each keystroke
-const InputField = ({ label, type = 'text', value, onChange, placeholder, showToggle, showValue, onToggle }) => (
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+// OUTSIDE component - prevents remount on each keystroke
+const InputField = ({ label, type = 'text', value, onChange, placeholder, showToggle, showValue, onToggle, required = true }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <div className="relative">
@@ -13,7 +15,7 @@ const InputField = ({ label, type = 'text', value, onChange, placeholder, showTo
         onChange={onChange}
         placeholder={placeholder}
         className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-10"
-        required
+        required={required}
       />
       {showToggle && (
         <button
@@ -23,36 +25,6 @@ const InputField = ({ label, type = 'text', value, onChange, placeholder, showTo
         >
           {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
-      )}
-
-      {activeTab === 'widget-embed' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-indigo-100 p-2.5 rounded-xl">
-              <Key className="h-5 w-5 text-indigo-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Widget Embed Code</h3>
-              <p className="text-sm text-gray-500">Copy and paste this code to integrate the chat widget on your website</p>
-            </div>
-          </div>
-          
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 font-mono text-sm overflow-x-auto whitespace-pre">
-            {`<script>
-  window.KnowBridgeConfig = {
-    tenantId: "${JSON.parse(localStorage.getItem('knowbridge_admin_user') || '{}').tenant_id || 'YOUR_TENANT_ID'}",
-    apiUrl: "${import.meta.env.VITE_API_URL || 'http://localhost:5000'}"
-  };
-</script>
-<script src="${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/widget/chat-widget.bundle.js" async></script>`}
-          </div>
-          <button onClick={() => {
-            navigator.clipboard.writeText(`<script>\n  window.KnowBridgeConfig = {\n    tenantId: "${JSON.parse(localStorage.getItem('knowbridge_admin_user') || '{}').tenant_id || 'YOUR_TENANT_ID'}",\n    apiUrl: "${import.meta.env.VITE_API_URL || 'http://localhost:5000'}"\n  };\n</script>\n<script src="${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/widget/chat-widget.bundle.js" async></script>`);
-            alert('Copied to clipboard!');
-          }} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
-            Copy to Clipboard
-          </button>
-        </div>
       )}
     </div>
   </div>
@@ -68,8 +40,24 @@ const ResultBanner = ({ result }) => {
   )
 }
 
+const getEmbedCode = () => {
+  const tenantId = JSON.parse(localStorage.getItem('chaty_admin_user') || '{}').tenant_id || 'YOUR_TENANT_ID'
+  return `<script>
+  window.ChatyConfig = {
+    tenantId: "${tenantId}",
+    apiUrl: "${API_URL}"
+  };
+</script>
+<script src="${API_URL}/widget/chat-widget.bundle.js" async></script>`
+}
+
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState('password')
+  const [activeTab, setActiveTab] = useState('website')
+
+  // Website (tenant) settings state
+  const [siteForm, setSiteForm]       = useState({ name: '', domain: '' })
+  const [siteLoading, setSiteLoading] = useState(false)
+  const [siteResult, setSiteResult]   = useState(null)
 
   // Password change state
   const [pwForm, setPwForm]     = useState({ email: '', currentPassword: '', newPassword: '', confirmPassword: '' })
@@ -83,6 +71,31 @@ const Settings = () => {
   const [agentForm, setAgentForm]     = useState({ name: '', email: '', password: '', role: 'agent',  })
   const [agentLoading, setAgentLoading] = useState(false)
   const [agentResult, setAgentResult]   = useState(null)
+
+  useEffect(() => {
+    api.get('/admin/settings')
+      .then(res => {
+        const s = res.data.settings || {}
+        setSiteForm({ name: s.name || '', domain: s.domain || '' })
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleSaveSite = async (e) => {
+    e.preventDefault()
+    setSiteLoading(true)
+    setSiteResult(null)
+    try {
+      const res = await api.put('/admin/settings', siteForm)
+      const s = res.data.settings || {}
+      setSiteForm({ name: s.name || '', domain: s.domain || '' })
+      setSiteResult({ success: true, message: 'Website settings saved!' })
+    } catch (error) {
+      setSiteResult({ success: false, message: error.response?.data?.error || 'Failed to save settings' })
+    } finally {
+      setSiteLoading(false)
+    }
+  }
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
@@ -134,16 +147,17 @@ const Settings = () => {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage account and team settings</p>
+        <p className="text-sm text-gray-500 mt-1">Manage your website, account and team settings</p>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-6">
           {[
-            { key: 'password',     label: 'ðŸ”‘ Change Password' },
-            { key: 'create-agent', label: 'ðŸ‘¤ Create Agent'    },
-            { key: 'widget-embed', label: '💻 Widget Embed' }
+            { key: 'website',      label: 'Website'         },
+            { key: 'widget-embed', label: 'Widget Embed'    },
+            { key: 'password',     label: 'Change Password' },
+            { key: 'create-agent', label: 'Create Agent'    }
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -158,7 +172,76 @@ const Settings = () => {
         </nav>
       </div>
 
-      {/* â”€â”€ Change Password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Website ─────────────────────────────── */}
+      {activeTab === 'website' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-blue-100 p-2.5 rounded-xl">
+              <Globe className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Website</h3>
+              <p className="text-sm text-gray-500">The chat widget only works on the domain registered here</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveSite} className="space-y-4">
+            <InputField
+              label="Company Name"
+              value={siteForm.name}
+              onChange={e => setSiteForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="Acme Inc."
+            />
+            <InputField
+              label="Website Domain"
+              value={siteForm.domain}
+              onChange={e => setSiteForm(p => ({ ...p, domain: e.target.value }))}
+              placeholder="acme.com"
+              required={false}
+            />
+            <p className="text-xs text-gray-500">
+              Enter just the domain, e.g. <code>acme.com</code>. While developing, <code>localhost</code> is always allowed.
+            </p>
+
+            <ResultBanner result={siteResult} />
+
+            <button type="submit" disabled={siteLoading}
+              className="w-full py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium">
+              {siteLoading
+                ? <><Loader className="h-4 w-4 animate-spin" /> Saving...</>
+                : <><Save className="h-4 w-4" /> Save Website Settings</>
+              }
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── Widget Embed ────────────────────────── */}
+      {activeTab === 'widget-embed' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-indigo-100 p-2.5 rounded-xl">
+              <Code className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Widget Embed Code</h3>
+              <p className="text-sm text-gray-500">Copy and paste this code to integrate the chat widget on your website</p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 font-mono text-sm overflow-x-auto whitespace-pre">
+            {getEmbedCode()}
+          </div>
+          <button onClick={() => {
+            navigator.clipboard.writeText(getEmbedCode())
+            alert('Copied to clipboard!')
+          }} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
+            Copy to Clipboard
+          </button>
+        </div>
+      )}
+
+      {/* ── Change Password ─────────────────────── */}
       {activeTab === 'password' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -220,7 +303,7 @@ const Settings = () => {
         </div>
       )}
 
-      {/* â”€â”€ Create Agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Create Agent ────────────────────────── */}
       {activeTab === 'create-agent' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -293,5 +376,3 @@ const Settings = () => {
 }
 
 export default Settings
-
-

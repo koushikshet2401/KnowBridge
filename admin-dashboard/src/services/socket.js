@@ -6,7 +6,7 @@ let socket = null
 
 export const initSocket = () => {
   if (!socket) {
-    const token = localStorage.getItem('knowbridge_admin_token') || window.KNOWBRIDGE_AUTH?.token;
+    const token = localStorage.getItem('chaty_admin_token') || window.CHATY_AUTH?.token;
     socket = io(`${SOCKET_URL}/admin`, {
       autoConnect: false,
       auth: { token }

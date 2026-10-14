@@ -1,5 +1,8 @@
 const pool = require('../config/database');
 
+// Notifications belong to an agent. Older code paths store the agent id in
+// `user_id`, newer ones in `agent_id`, so reads match either column.
+
 class Notification {
   static async findAll(agentId, options = {}) {
     try {
@@ -16,7 +19,7 @@ class Notification {
           is_read,
           created_at
         FROM notifications
-        WHERE user_id = $1
+        WHERE (user_id = $1 OR agent_id = $1)
         ORDER BY created_at DESC
         LIMIT $2`,
         [agentId, limit]
@@ -33,7 +36,7 @@ class Notification {
       const result = await pool.query(
         `UPDATE notifications 
         SET is_read = true
-        WHERE id = $1 AND user_id = $2
+        WHERE id = $1 AND (user_id = $2 OR agent_id = $2)
         RETURNING *`,
         [notificationId, agentId]
       );
@@ -49,7 +52,7 @@ class Notification {
       const result = await pool.query(
         `UPDATE notifications 
         SET is_read = true
-        WHERE user_id = $1 AND is_read = false
+        WHERE (user_id = $1 OR agent_id = $1) AND is_read = false
         RETURNING *`,
         [agentId]
       );
@@ -65,7 +68,7 @@ class Notification {
       const result = await pool.query(
         `SELECT COUNT(*) as count 
         FROM notifications 
-        WHERE user_id = $1 AND is_read = false`,
+        WHERE (user_id = $1 OR agent_id = $1) AND is_read = false`,
         [agentId]
       );
       return parseInt(result.rows[0].count);
@@ -79,8 +82,8 @@ class Notification {
     try {
       const result = await pool.query(
         `INSERT INTO notifications 
-        (agent_id, chat_id, type, message, is_read, created_at)
-        VALUES ($1, $2, $3, $4, false, NOW())
+        (agent_id, user_id, chat_id, type, message, is_read, created_at)
+        VALUES ($1, $1, $2, $3, $4, false, NOW())
         RETURNING *`,
         [userId, chatId, type, message]
       );
@@ -95,7 +98,7 @@ class Notification {
     try {
       const result = await pool.query(
         `DELETE FROM notifications
-        WHERE id = $1 AND agent_id = $2
+        WHERE id = $1 AND (user_id = $2 OR agent_id = $2)
         RETURNING *`,
         [notificationId, agentId]
       );

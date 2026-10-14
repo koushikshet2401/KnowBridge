@@ -119,7 +119,7 @@ const ChatDetail = () => {
       // The backend auto-assigns the chat to the responding agent and sets status to active.
       // We must update the local state so the "Return to AI" button appears immediately!
       if (!chat.assigned_to || chat.status !== 'active') {
-        const agentId = JSON.parse(localStorage.getItem('knowbridge_admin_user') || '{}').id;
+        const agentId = JSON.parse(localStorage.getItem('chaty_admin_user') || '{}').id;
         setChat(prev => ({ ...prev, assigned_to: prev.assigned_to || agentId, status: 'active' }));
       }
       // ✅ Don't call fetchChatDetails() - socket delivers the new message

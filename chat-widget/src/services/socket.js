@@ -13,14 +13,14 @@ export const connectSocket = (apiUrl, userId) => {
     || '';
 
   if (!base) {
-    console.error('KnowBridge Socket: No apiUrl provided! Check CHAT_BACKEND_URL in .env and blade template.');
+    console.error('Chaty Socket: No apiUrl provided! Set apiUrl in window.ChatyConfig.');
     return null;
   }
 
   const socketUrl = base.replace(/\/api\/?$/, '').replace(/\/$/, '');
-  const tenantId  = (window.CHAT_CONFIG && window.CHAT_CONFIG.tenantId) || window.KnowBridgeConfig?.tenantId;
+  const tenantId  = (window.CHAT_CONFIG && window.CHAT_CONFIG.tenantId) || window.ChatyConfig?.tenantId;
   const token     = (window.CHAT_CONFIG && window.CHAT_CONFIG.authToken)
-    || localStorage.getItem('KnowBridge_chat_token')
+    || localStorage.getItem('chaty_chat_token')
     || null;
 
   if (socket && socket.connected) {

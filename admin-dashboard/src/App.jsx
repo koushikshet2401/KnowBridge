@@ -11,7 +11,7 @@ import Login from './pages/Login'
 
 // Simple Protected Route component
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('knowbridge_admin_token');
+  const token = localStorage.getItem('chaty_admin_token');
   if (!token) {
     return <Navigate to="/login" replace />;
   }

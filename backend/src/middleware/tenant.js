@@ -37,8 +37,8 @@ const validateTenantOrigin = async (req, res, next) => {
       hostname = origin;
     }
     
-    // Normalize localhost for testing
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    // Allow localhost for local testing only — in production it would let anyone bypass the domain check
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && process.env.NODE_ENV !== 'production') {
       req.tenant_id = tenantId;
       return next();
     }

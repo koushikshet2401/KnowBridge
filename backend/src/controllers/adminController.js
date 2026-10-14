@@ -1,6 +1,8 @@
 const pool   = require('../config/database');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
+const { emitToChat } = require('../socket/emit');
+const { normalizeDomain } = require('../utils/domain');
 
 // ═══════════════════════════════════════════════
 // DASHBOARD
@@ -253,7 +255,7 @@ exports.replyToChat = async (req, res) => {
 
     // Emit to specific tenant room
     if (global.io) {
-      global.io.to(`chat_${chatId}`).emit('new-message', { chatId, message });
+      emitToChat(chatId, 'new-message', { chatId, message });
     }
 
     res.status(201).json({ success: true, message });
@@ -316,7 +318,73 @@ exports.changePassword = async (req, res) => {
 };
 
 exports.getSettings = async (req, res) => {
-  res.status(200).json({ success: true, settings: {} });
+  try {
+    const result = await pool.query('SELECT name, domain FROM tenants WHERE id = $1', [req.tenant_id]);
+    if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Tenant not found' });
+    res.status(200).json({ success: true, settings: result.rows[0] });
+  } catch (error) {
+    logger.error('Get settings error:', error);
+    res.status(500).json({ success: false, error: 'Failed to load settings' });
+  }
+};
+
+exports.updateSettings = async (req, res) => {
+  try {
+    if (!['admin', 'super_admin'].includes(req.agent?.role)) {
+      return res.status(403).json({ success: false, error: 'Only admins can change website settings' });
+    }
+    const { name, domain } = req.body;
+    const updates = [];
+    const values = [];
+
+    if (name !== undefined) {
+      if (!String(name).trim()) return res.status(400).json({ success: false, error: 'Company name cannot be empty' });
+      values.push(String(name).trim());
+      updates.push(`name = $${values.length}`);
+    }
+    if (domain !== undefined) {
+      const normalized = normalizeDomain(domain);
+      if (normalized === undefined) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid website domain, e.g. acme.com' });
+      }
+      if (normalized) {
+        const taken = await pool.query('SELECT 1 FROM tenants WHERE domain = $1 AND id <> $2', [normalized, req.tenant_id]);
+        if (taken.rows.length > 0) {
+          return res.status(400).json({ success: false, error: 'This website domain is already registered' });
+        }
+      }
+      values.push(normalized);
+      updates.push(`domain = $${values.length}`);
+    }
+    if (updates.length === 0) return res.status(400).json({ success: false, error: 'Nothing to update' });
+
+    values.push(req.tenant_id);
+    const result = await pool.query(
+      `UPDATE tenants SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING name, domain`,
+      values
+    );
+    res.status(200).json({ success: true, settings: result.rows[0] });
+  } catch (error) {
+    logger.error('Update settings error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save settings' });
+  }
+};
+
+exports.closeChat = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const result = await pool.query(
+      `UPDATE chats SET status = 'closed', closed_at = NOW(), resolved_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 RETURNING *`,
+      [chatId, req.tenant_id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ success: false, error: 'Chat not found' });
+    emitToChat(chatId, 'chat-closed', { chatId, message: 'This chat has been closed', timestamp: new Date() });
+    res.status(200).json({ success: true, chat: result.rows[0] });
+  } catch (error) {
+    logger.error('Close chat error:', error);
+    res.status(500).json({ success: false, error: 'Failed to close chat' });
+  }
 };
 
 // Added missing stubs to prevent router crash, but they return 501 Not Implemented in production
@@ -328,7 +396,5 @@ exports.getAgentStats = async (req, res) => { res.status(501).json({ success: fa
 exports.getReviews = async (req, res) => { res.status(501).json({ success: false, error: 'Not Implemented' }); };
 exports.resolveReview = async (req, res) => { res.status(501).json({ success: false, error: 'Not Implemented' }); };
 exports.getFeedbackAnalysis = async (req, res) => { res.status(501).json({ success: false, error: 'Not Implemented' }); };
-exports.updateSettings = async (req, res) => { res.status(501).json({ success: false, error: 'Not Implemented' }); };
-exports.closeChat = async (req, res) => { res.status(501).json({ success: false, error: 'Not Implemented' }); };
 
 module.exports = exports;

@@ -20,11 +20,11 @@ const Layout = ({ children }) => {
   const location = useLocation()
   const navigate = useNavigate()
   
-  const user = JSON.parse(localStorage.getItem('knowbridge_admin_user') || '{}');
+  const user = JSON.parse(localStorage.getItem('chaty_admin_user') || '{}');
 
   const handleLogout = () => {
-    localStorage.removeItem('knowbridge_admin_token');
-    localStorage.removeItem('knowbridge_admin_user');
+    localStorage.removeItem('chaty_admin_token');
+    localStorage.removeItem('chaty_admin_user');
     disconnectSocket();
     navigate('/login');
   };
@@ -101,7 +101,7 @@ const Layout = ({ children }) => {
           {/* Footer info (optional - can be removed) */}
           <div className="border-t p-4">
             <div className="px-4 py-2 text-xs text-gray-500">
-              Embedded in KnowBridge
+              Embedded in Chaty
             </div>
           </div>
         </div>

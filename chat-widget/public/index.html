@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KnowBridge Chat Widget Test</title>
+  <title>Chaty Chat Widget Test</title>
 </head>
 <body>
-  <div id="KnowBridge-chat-root"></div>
+  <div id="chaty-chat-root"></div>
   <script>
     // Provide config for the widget so it knows where the backend is
     window.CHAT_CONFIG = {
@@ -15,12 +15,12 @@
     };
     
     // Webpack will inject the JS bundle after this. 
-    // We wait for DOMContentLoaded to ensure the bundle has executed and attached KnowBridgeChat to window.
+    // We wait for DOMContentLoaded to ensure the bundle has executed and attached ChatyChat to window.
     window.addEventListener('load', () => {
-      if (window.KnowBridgeChat) {
-        window.KnowBridgeChat.init();
+      if (window.ChatyChat) {
+        window.ChatyChat.init();
       } else {
-        console.error("KnowBridgeChat is not defined on window yet.");
+        console.error("ChatyChat is not defined on window yet.");
       }
     });
   </script>

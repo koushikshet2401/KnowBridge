@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KnowBridge AI - Intelligent Support Automation</title>
+    <title>Chaty AI - Intelligent Support Automation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
@@ -57,8 +57,8 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex-shrink-0 flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl">K</div>
-                    <span class="font-bold text-xl tracking-tight text-slate-900">KnowBridge</span>
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl">C</div>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">Chaty</span>
                 </div>
                 <div class="hidden md:flex space-x-8">
                     <a href="#features" class="text-slate-600 hover:text-brand-600 font-medium transition-colors">Features</a>
@@ -92,7 +92,7 @@
             <span class="gradient-text">Intelligent Context</span>
         </h1>
         <p class="mt-4 text-xl text-slate-600 max-w-3xl mx-auto mb-10 leading-relaxed">
-            KnowBridge seamlessly blends AI-driven vector search with human agent handoffs. Train the bot on your PDFs and website, embed it with one script, and resolve 80% of tickets instantly.
+            Chaty seamlessly blends AI-driven vector search with human agent handoffs. Train the bot on your PDFs and website, embed it with one script, and resolve 80% of tickets instantly.
         </p>
         <div class="flex flex-col sm:flex-row justify-center gap-4">
             <a href="#integration" class="bg-brand-600 text-white px-8 py-3.5 rounded-full font-medium hover:bg-brand-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
@@ -232,14 +232,14 @@
                         </div>
                         <div class="p-6 overflow-x-auto text-sm leading-relaxed code-block">
 <pre><code><span class="text-slate-400">&lt;!-- 1. Add the widget container --&gt;</span>
-<span class="text-pink-400">&lt;div</span> <span class="text-green-300">id</span>=<span class="text-yellow-300">"KnowBridge-chat-root"</span><span class="text-pink-400">&gt;&lt;/div&gt;</span>
+<span class="text-pink-400">&lt;div</span> <span class="text-green-300">id</span>=<span class="text-yellow-300">"chaty-chat-root"</span><span class="text-pink-400">&gt;&lt;/div&gt;</span>
 
 <span class="text-slate-400">&lt;!-- 2. Load the script --&gt;</span>
 <span class="text-pink-400">&lt;script</span> <span class="text-green-300">src</span>=<span class="text-yellow-300">"https://your-domain.com/chat-widget.bundle.js"</span><span class="text-pink-400">&gt;&lt;/script&gt;</span>
 
 <span class="text-slate-400">&lt;!-- 3. Initialize it --&gt;</span>
 <span class="text-pink-400">&lt;script&gt;</span>
-  <span class="text-blue-300">window</span>.KnowBridgeChat.init({
+  <span class="text-blue-300">window</span>.ChatyChat.init({
     <span class="text-green-300">apiUrl</span>: <span class="text-yellow-300">'https://api.your-domain.com'</span>
   });
 <span class="text-pink-400">&lt;/script&gt;</span></code></pre>
@@ -297,10 +297,10 @@
     <footer class="bg-slate-950 text-slate-400 py-12 border-t border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
             <div class="flex items-center gap-2 mb-4 md:mb-0">
-                <div class="w-6 h-6 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">K</div>
-                <span class="font-semibold text-slate-300">KnowBridge</span>
+                <div class="w-6 h-6 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">C</div>
+                <span class="font-semibold text-slate-300">Chaty</span>
             </div>
-            <p class="text-sm">© 2026 KnowBridge Platform. All rights reserved.</p>
+            <p class="text-sm">© 2026 Chaty Platform. All rights reserved.</p>
         </div>
     </footer>
 
@@ -349,8 +349,7 @@
     <!-- REAL CHATBOT WIDGET INTEGRATION (DEMO)     -->
     <!-- ========================================== -->
     
-    <link rel="stylesheet" href="./widget/chat-widget.bundle.css" />
-    <div id="KnowBridge-chat-root"></div>
+    <div id="chaty-chat-root"></div>
     
     <!-- Animated Pointer (Hidden by default, shown when logged in) -->
     <div id="chat-pointer" class="hidden fixed bottom-24 right-24 z-[60] flex items-end animate-bounce">
@@ -363,7 +362,7 @@
     <script src="./widget/chat-widget.bundle.js"></script>
     <script>
         // Auth Logic
-        const API_URL = 'https://knowbridge-s2ev.onrender.com';
+        const API_URL = 'http://localhost:5000';
         
         function checkAuthState() {
             const token = localStorage.getItem('demo_auth_token');
@@ -430,13 +429,13 @@
             }
         });
 
-        // Initialize the KnowBridge Chat Widget
+        // Initialize the Chaty Chat Widget
         window.addEventListener('load', () => {
             try {
                 // Determine authentication state safely
                 const authData = checkAuthState();
                 
-                if (window.KnowBridgeChat) {
+                if (window.ChatyChat) {
                     const config = {
                         apiUrl: API_URL,
                         theme: 'blue',
@@ -454,13 +453,13 @@
                     }
 
                     // Initialize and mount the widget
-                    window.KnowBridgeChat.init(config);
-                    setTimeout(() => window.KnowBridgeChat.open(), 500);
+                    window.ChatyChat.init(config);
+                    setTimeout(() => window.ChatyChat.open(), 500);
                 } else {
-                    console.error("KnowBridge: Widget script failed to load or attach to window.");
+                    console.error("Chaty: Widget script failed to load or attach to window.");
                 }
             } catch (err) {
-                console.error("KnowBridge: Error during initialization:", err);
+                console.error("Chaty: Error during initialization:", err);
             }
         });
     </script>

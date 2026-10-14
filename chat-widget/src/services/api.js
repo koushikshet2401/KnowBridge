@@ -6,10 +6,10 @@ import axios from 'axios';
  */
 
 const getApiUrl = () => {
-  const config = window.CHAT_CONFIG || window.KnowBridgeConfig || {};
+  const config = window.CHAT_CONFIG || window.ChatyConfig || {};
   const base = config.apiUrl || '';
   if (!base) {
-    console.error('KnowBridge: apiUrl is not set! Check window.KnowBridgeConfig');
+    console.error('Chaty: apiUrl is not set! Check window.ChatyConfig');
     return '/api';
   }
   return base.replace(/\/$/, '') + '/api';
@@ -25,13 +25,13 @@ const createApi = () => axios.create({
 const addInterceptors = (instance) => {
   instance.interceptors.request.use((config) => {
     const token = (window.CHAT_CONFIG && window.CHAT_CONFIG.authToken)
-      || localStorage.getItem('KnowBridge_chat_token')
+      || localStorage.getItem('chaty_chat_token')
       || null;
-    if (token) config.headers['X-KnowBridge-Token'] = token;
+    if (token) config.headers['X-Chaty-Token'] = token;
     
     if (!config.headers['X-Tenant-ID']) {
       const tenantId = (window.CHAT_CONFIG && window.CHAT_CONFIG.tenantId) 
-        || window.KnowBridgeConfig?.tenantId;
+        || window.ChatyConfig?.tenantId;
       if (tenantId) config.headers['X-Tenant-ID'] = tenantId;
     }
     return config;
@@ -41,7 +41,7 @@ const addInterceptors = (instance) => {
     (response) => response,
     (error) => {
       if (error.response?.status === 401) {
-        console.warn('KnowBridge Chat: Auth token rejected (401). Chat continues without history saving.');
+        console.warn('Chaty Chat: Auth token rejected (401). Chat continues without history saving.');
       }
       return Promise.reject(error);
     }
@@ -57,7 +57,7 @@ export const startChat = async (message, userId, userName, userEmail) => {
     user_id:       userId,
     user_name:     userName,
     user_email:    userEmail,
-    tenant_id:     window.KnowBridgeConfig?.tenantId || window.CHAT_CONFIG?.tenantId
+    tenant_id:     window.ChatyConfig?.tenantId || window.CHAT_CONFIG?.tenantId
   });
   return response.data;
 };
@@ -66,7 +66,7 @@ export const sendMessage = async (chatId, message) => {
   const response = await getApi().post('/chat/message', {
     chat_id:       chatId,
     message,
-    tenant_id:     window.KnowBridgeConfig?.tenantId || window.CHAT_CONFIG?.tenantId
+    tenant_id:     window.ChatyConfig?.tenantId || window.CHAT_CONFIG?.tenantId
   });
   return response.data;
 };

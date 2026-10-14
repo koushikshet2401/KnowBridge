@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: ankane/pgvector:latest
-    container_name: knowbridge_postgres
+    container_name: chaty_postgres
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
@@ -16,7 +16,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: knowbridge_redis
+    container_name: chaty_redis
     ports:
       - "6379:6379"
     restart: unless-stopped

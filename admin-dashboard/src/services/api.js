@@ -9,15 +9,15 @@ const api = axios.create({
   },
 })
 
-// Add KnowBridge token to ALL requests
+// Add Chaty token to ALL requests
 api.interceptors.request.use((config) => {
   // 1. Check local storage (Standalone Staff Panel Login)
-  // 2. Check window object (Laravel Integration)
-  const token = localStorage.getItem('knowbridge_admin_token') || 
-                window.KNOWBRIDGE_AUTH?.token;
+  // 2. Check window object (host page integration)
+  const token = localStorage.getItem('chaty_admin_token') || 
+                window.CHATY_AUTH?.token;
   
   if (token) {
-    config.headers['X-KnowBridge-Token'] = token
+    config.headers['X-Chaty-Token'] = token
   }
   
   return config
@@ -31,7 +31,7 @@ api.interceptors.response.use(
     
     // Automatically log out if token is expired/invalid
     if (error.response?.status === 401) {
-      localStorage.removeItem('knowbridge_admin_token')
+      localStorage.removeItem('chaty_admin_token')
       window.location.href = '/login'
     }
     
