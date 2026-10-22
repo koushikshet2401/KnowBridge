@@ -63,6 +63,22 @@ class Notification {
     }
   }
 
+  static async markChatNotificationsAsRead(chatId, agentId) {
+    try {
+      const result = await pool.query(
+        `UPDATE notifications 
+        SET is_read = true
+        WHERE chat_id = $1 AND (user_id = $2 OR agent_id = $2 OR $2 IS NULL) AND is_read = false
+        RETURNING *`,
+        [chatId, agentId]
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('Notification.markChatNotificationsAsRead error:', error.message);
+      throw error;
+    }
+  }
+
   static async getUnreadCount(agentId) {
     try {
       const result = await pool.query(

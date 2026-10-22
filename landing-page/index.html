@@ -436,7 +436,12 @@
                 const authData = checkAuthState();
                 
                 if (window.ChatyChat) {
+                    const savedTenantId = (authData && authData.user && (authData.user.tenant_id || authData.user.tenantId))
+                        || localStorage.getItem('demo_site_tenant_id')
+                        || '534498fe-638a-4684-932f-adee3a4cef35';
+
                     const config = {
+                        tenantId: savedTenantId,
                         apiUrl: API_URL,
                         theme: 'blue',
                         position: 'bottom-right'

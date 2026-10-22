@@ -99,7 +99,10 @@ class EmailService {
     }
     if (!agentEmails || agentEmails.length === 0) return;
 
-    const dashboardUrl = process.env.ADMIN_DASHBOARD_URL || 'http://localhost:3000';
+    let dashboardUrl = process.env.ADMIN_DASHBOARD_URL || 'http://localhost:8000';
+    if (dashboardUrl.includes('localhost:3000') || dashboardUrl.includes('127.0.0.1:3000')) {
+      dashboardUrl = dashboardUrl.replace(':3000', ':8000');
+    }
     const chatUrl      = `${dashboardUrl}/chats/${chatId}`;
     const timeStr      = new Date().toLocaleString('en-IN', {
       dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata'
@@ -190,7 +193,11 @@ class EmailService {
   async sendAssignmentEmail(agentEmail, agentName, userName, chatId) {
     if (process.env.ENABLE_EMAIL_NOTIFICATIONS !== 'true') return;
 
-    const chatUrl = `${process.env.ADMIN_DASHBOARD_URL || 'http://localhost:3000'}/chats/${chatId}`;
+    let dashboardUrl = process.env.ADMIN_DASHBOARD_URL || 'http://localhost:8000';
+    if (dashboardUrl.includes('localhost:3000') || dashboardUrl.includes('127.0.0.1:3000')) {
+      dashboardUrl = dashboardUrl.replace(':3000', ':8000');
+    }
+    const chatUrl = `${dashboardUrl}/chats/${chatId}`;
 
     const bodyContent = `
       <p class="greeting">Hi ${agentName || 'Agent'}, 👋</p>

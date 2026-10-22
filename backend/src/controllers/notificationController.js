@@ -27,9 +27,27 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
+exports.markChatNotificationsAsRead = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    if (!chatId) return res.status(400).json({ success: false, error: 'Chat ID required' });
+    const updated = await Notification.markChatNotificationsAsRead(chatId, req.agent.id);
+    if (global.io && req.agent) {
+      global.io.of('/admin').to(`agent:${req.agent.id}`).emit('notifications-updated', { chatId });
+    }
+    res.status(200).json({ success: true, updated: updated ? updated.length : 0 });
+  } catch (error) {
+    logger.error('Mark chat notifications read error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update notifications' });
+  }
+};
+
 exports.markAllAsRead = async (req, res) => {
   try {
     const updated = await Notification.markAllAsRead(req.agent.id);
+    if (global.io && req.agent) {
+      global.io.of('/admin').to(`agent:${req.agent.id}`).emit('notifications-updated', { all: true });
+    }
     res.status(200).json({ success: true, updated: updated.length });
   } catch (error) {
     logger.error('Mark all notifications read error:', error);

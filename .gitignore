@@ -34,3 +34,14 @@ Thumbs.db
 # User Uploads & Data
 backend/uploads/
 uploads/
+
+# Built widget bundles (generated - do not track)
+backend/public/chat-widget.bundle.js
+landing-page/widget/chat-widget.bundle.js
+
+# Temp / test files
+*.pdf
+*.docx
+custom.js
+custom_new.js
+resume_upload.html

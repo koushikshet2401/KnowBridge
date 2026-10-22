@@ -32,18 +32,30 @@ const authenticate = async (req, res, next) => {
     return res.status(401).json({ success: false, error: 'Invalid or expired token. Please login again.' });
   }
 
+  let agent;
   try {
-    const agent = await Agent.findById(decoded.id);
-    if (!agent) {
-      return res.status(401).json({ success: false, error: 'Account no longer exists. Please login again.' });
-    }
-    req.agent = agent;
-    req.tenant_id = agent.tenant_id;
-    next();
+    agent = await Agent.findById(decoded.id);
   } catch (error) {
-    logger.error('Authentication lookup failed:', error);
-    return res.status(500).json({ success: false, error: 'Internal server error during authentication' });
+    if (error.message && (error.message.includes('Connection terminated') || error.message.includes('closed') || error.code === 'ECONNRESET')) {
+      try {
+        logger.warn('Auth: Pool connection dropped, retrying lookup with fresh connection...');
+        agent = await Agent.findById(decoded.id);
+      } catch (retryError) {
+        logger.error('Authentication lookup retry failed:', retryError);
+        return res.status(500).json({ success: false, error: 'Internal server error during authentication' });
+      }
+    } else {
+      logger.error('Authentication lookup failed:', error);
+      return res.status(500).json({ success: false, error: 'Internal server error during authentication' });
+    }
   }
+
+  if (!agent) {
+    return res.status(401).json({ success: false, error: 'Account no longer exists. Please login again.' });
+  }
+  req.agent = agent;
+  req.tenant_id = agent.tenant_id;
+  next();
 };
 
 const requirePermission = (permission) => {

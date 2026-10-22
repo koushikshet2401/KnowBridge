@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 
 const Login = () => {
@@ -12,6 +12,11 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const from = location.state?.from?.pathname
+    ? `${location.state.from.pathname}${location.state.from.search || ''}`
+    : null;
 
   const isSignup = mode === 'signup';
 
@@ -30,12 +35,9 @@ const Login = () => {
         localStorage.setItem('chaty_admin_token', response.data.token);
         localStorage.setItem('chaty_admin_user', JSON.stringify(response.data.agent));
 
-        // Redirect based on role
-        if (response.data.agent.role === 'super_admin') {
-          navigate('/dashboard');
-        } else {
-          navigate('/chats');
-        }
+        // Redirect based on previous destination or role
+        const defaultDest = response.data.agent.role === 'super_admin' ? '/dashboard' : '/chats';
+        navigate(from || defaultDest, { replace: true });
       }
     } catch (err) {
       setError(err.response?.data?.error || (isSignup

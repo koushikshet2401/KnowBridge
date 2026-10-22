@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
+import { getSocket } from '../services/socket'
 import { useNavigate } from 'react-router-dom'
 import {
   MessageSquare, Users, TrendingUp, Clock, AlertCircle,
@@ -19,17 +20,36 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchAll()
+
+    const socket = getSocket()
+    if (!socket) return
+
+    if (!socket.connected) {
+      socket.connect()
+    }
+
+    const handleDashboardUpdate = () => {
+      fetchStatsQuietly()
+    }
+
+    socket.on('chat-escalated', handleDashboardUpdate)
+    socket.on('chat-status-changed', handleDashboardUpdate)
+    socket.on('chat-assigned', handleDashboardUpdate)
+
+    return () => {
+      socket.off('chat-escalated', handleDashboardUpdate)
+      socket.off('chat-status-changed', handleDashboardUpdate)
+      socket.off('chat-assigned', handleDashboardUpdate)
+    }
   }, [])
 
-  const fetchAll = async () => {
-    setLoading(true)
+  const fetchStatsQuietly = async () => {
     try {
       const [statsRes, chartsRes] = await Promise.all([
         api.get('/admin/dashboard/stats'),
         api.get('/admin/dashboard/charts?days=7')
       ])
       setStats(statsRes.data.stats)
-      // Normalize chart data
       const raw = chartsRes.data.charts || []
       setCharts(raw.map(row => ({
         date:     format(new Date(row.date), 'MMM d'),
@@ -39,7 +59,14 @@ const Dashboard = () => {
         Pending:  parseInt(row.pending) || 0,
       })))
     } catch (error) {
-      console.error('Dashboard fetch error:', error)
+      console.error('Silent dashboard update error:', error)
+    }
+  }
+
+  const fetchAll = async () => {
+    setLoading(true)
+    try {
+      await fetchStatsQuietly()
     } finally {
       setLoading(false)
     }

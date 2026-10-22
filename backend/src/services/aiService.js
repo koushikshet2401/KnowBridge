@@ -25,7 +25,7 @@ const SMALL_TALK = {
   'how r u': "I'm doing great! 😊 How can I help you today?",
 };
 
-const ESCALATION_RESPONSE = "I don't have enough information to answer that accurately. I'm connecting you with a human support agent who can help you right away. Please wait a moment...";
+const ESCALATION_RESPONSE = "I'm connecting you with a human support agent who can help you right away. Please wait a moment...";
 
 function getSmallTalkResponse(message) {
   const cleaned = message.toLowerCase().trim().replace(/[.,!?]/g, '');
@@ -49,7 +49,11 @@ function isEscalationNeeded(userMessage) {
     'transfer me to support',
     'human agent',
     'real person',
-    'talk to human'
+    'talk to human',
+    'talk to a human agent',
+    'talk to a human',
+    'human support',
+    'support agent'
   ];
   return escalationKeywords.some(keyword => msg.includes(keyword));
 }

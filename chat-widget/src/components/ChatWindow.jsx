@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sendMessage, startChat, submitFeedback, getChatMessages, getChatById } from '../services/api';
+import { getSocket } from '../services/socket';
+import { playDropSound, playMessageSound, isMuted, toggleMuted, subscribeMuteChange } from '../utils/sound';
 
 // ── Icons ────────────────────────────────────────
 const Send = ({ size = 18 }) => (
@@ -48,6 +50,19 @@ const Minimize = ({ size = 18 }) => (
     <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
   </svg>
 );
+const Volume2 = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+  </svg>
+);
+const VolumeX = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <line x1="23" y1="9" x2="17" y2="15" />
+    <line x1="17" y1="9" x2="23" y2="15" />
+  </svg>
+);
 
 // ── ChatWindow ───────────────────────────────────
 const ChatWindow = ({
@@ -59,14 +74,28 @@ const ChatWindow = ({
   onBack, isExpanded, onToggleExpand,
   apiUrl
 }) => {
-  const [messages, setMessages]     = useState([]);
-  const [inputText, setInputText]   = useState('');
-  const [chatId, setChatId]         = useState(initialChatId ? String(initialChatId) : null);
-  const [chatStatus, setChatStatus] = useState('active');
+  const [messages, setMessages]       = useState([]);
+  const [inputText, setInputText]     = useState('');
+  const [chatId, setChatId]           = useState(initialChatId ? String(initialChatId) : null);
+  const [chatStatus, setChatStatus]   = useState('active');
+  const [assignedAgent, setAssignedAgent] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const messagesEndRef              = useRef(null);
-  const messageIdsRef               = useRef(new Set());
-  const isSubmittingRef             = useRef(false);
+  const [isMutedState, setIsMutedState] = useState(isMuted());
+  const messagesEndRef                = useRef(null);
+  const messageIdsRef                 = useRef(new Set());
+  const isSubmittingRef               = useRef(false);
+
+  useEffect(() => {
+    return subscribeMuteChange(setIsMutedState);
+  }, []);
+
+  const toggleSound = () => {
+    const next = toggleMuted();
+    setIsMutedState(next);
+    if (!next) {
+      playDropSound(0.20);
+    }
+  };
 
   // ── Only merge NEW external messages (agent replies) ──
   useEffect(() => {
@@ -95,6 +124,7 @@ const ChatWindow = ({
         created_at: new Date().toISOString()
       }]);
       setChatStatus('active');
+      setAssignedAgent(null);
     } else {
       // Fetch existing messages and chat details for the selected chat
       setIsAnalyzing(true);
@@ -110,8 +140,16 @@ const ChatWindow = ({
             messageIdsRef.current = ids;
             setMessages(msgs);
           }
-          if (chatData && chatData.chat && chatData.chat.status) {
-            setChatStatus(chatData.chat.status);
+          if (chatData && chatData.chat) {
+            setChatStatus(chatData.chat.status || 'active');
+            if (chatData.chat.agent_name || chatData.chat.assigned_agent_id) {
+              setAssignedAgent({
+                name: chatData.chat.agent_name || 'Support Agent',
+                id: chatData.chat.assigned_agent_id
+              });
+            } else {
+              setAssignedAgent(null);
+            }
           }
         })
         .catch(err => console.error("Failed to fetch chat details", err))
@@ -123,19 +161,132 @@ const ChatWindow = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const activeSocket = socket || getSocket();
+
   useEffect(() => {
-    if (socket && chatId) {
+    const s = activeSocket;
+    if (s && chatId) {
       const handleStatusChange = (payload) => {
-        if (payload && String(payload.chatId) === String(chatId) && payload.status) {
-          setChatStatus(payload.status);
+        console.log('🔔 Received chat-status-changed in widget:', payload);
+        if (payload && String(payload.chatId) === String(chatId)) {
+          if (payload.status) setChatStatus(payload.status);
+          if (payload.agentName || payload.assignedAgentId) {
+            setAssignedAgent({
+              name: payload.agentName || 'Support Agent',
+              id: payload.assignedAgentId
+            });
+          } else if (payload.isAi || !payload.assignedAgentId) {
+            setAssignedAgent(null);
+          }
         }
       };
-      socket.on('chat-status-changed', handleStatusChange);
+
+      const handleAssigned = (payload) => {
+        console.log('🔔 Received chat-assigned in widget:', payload);
+        if (payload && String(payload.chatId) === String(chatId)) {
+          setChatStatus('active');
+          const agentName = payload.agentName || 'Support Agent';
+          setAssignedAgent({
+            name: agentName,
+            id: payload.agentId
+          });
+          addMessage({
+            id: 'assigned-' + Date.now(),
+            content: `You are now connected with ${agentName}.`,
+            sender_type: 'system',
+            created_at: new Date().toISOString()
+          });
+        }
+      };
+
+      const handleEscalated = (payload) => {
+        console.log('🔔 Received chat-escalated in widget:', payload);
+        if (payload && String(payload.chatId) === String(chatId)) {
+          if (payload.status) setChatStatus(payload.status);
+          if (payload.agentName) {
+            setAssignedAgent({
+              name: payload.agentName,
+              id: payload.assignedAgentId
+            });
+          }
+        }
+      };
+
+      const handleNewMessage = (payload) => {
+        console.log('💬 Received new-message in widget:', payload);
+        const msg = (payload && payload.message) ? payload.message : payload;
+        const msgChatId = (payload && payload.chatId) || (msg && (msg.chat_id || msg.chatId));
+        if (msgChatId && String(msgChatId) !== String(chatId)) return;
+        if (!msg) return;
+
+        // Whenever an AI or Agent message arrives, stop analyzing immediately and play message chime
+        if (msg.sender_type === 'ai' || msg.sender_type === 'agent') {
+          setIsAnalyzing(false);
+          playMessageSound(0.24);
+        }
+
+        // Deduplicate user messages: replace matching optimistic temp message
+        if (msg.sender_type === 'user') {
+          setMessages(prev => {
+            if (msg.id && prev.some(m => String(m.id) === String(msg.id))) return prev;
+            const tempIdx = prev.findIndex(m => m.id && String(m.id).startsWith('temp-') && m.content === msg.content);
+            if (tempIdx !== -1) {
+              const updated = [...prev];
+              updated[tempIdx] = msg;
+              messageIdsRef.current.delete(String(prev[tempIdx].id));
+              if (msg.id) messageIdsRef.current.add(String(msg.id));
+              return updated;
+            }
+            if (msg.id && messageIdsRef.current.has(String(msg.id))) return prev;
+            if (msg.id) messageIdsRef.current.add(String(msg.id));
+            return [...prev, msg];
+          });
+          return;
+        }
+
+        addMessage(msg);
+
+        // If an agent message arrives, ensure the waiting banner is dismissed and agent status is shown
+        if (msg.sender_type === 'agent') {
+          setChatStatus('active');
+          if (msg.agent_name || msg.sender_id) {
+            setAssignedAgent(prev => ({
+              name: msg.agent_name || prev?.name || 'Support Agent',
+              id: msg.sender_id || prev?.id
+            }));
+          }
+        }
+      };
+
+      const handleJoined = (res) => {
+        console.log('✅ Widget joined chat room confirmation:', res);
+      };
+
+      const joinChatRoom = () => {
+        console.log(`📡 Widget emitting join-chat for room: ${chatId}`);
+        s.emit('join-chat', { chatId: String(chatId) });
+      };
+
+      if (s.connected) {
+        joinChatRoom();
+      }
+      s.on('connect', joinChatRoom);
+      s.on('joined-chat', handleJoined);
+      s.on('chat-status-changed', handleStatusChange);
+      s.on('chat-assigned', handleAssigned);
+      s.on('chat-escalated', handleEscalated);
+      s.on('new-message', handleNewMessage);
+
       return () => {
-        socket.off('chat-status-changed', handleStatusChange);
+        s.off('connect', joinChatRoom);
+        s.off('joined-chat', handleJoined);
+        s.off('chat-status-changed', handleStatusChange);
+        s.off('chat-assigned', handleAssigned);
+        s.off('chat-escalated', handleEscalated);
+        s.off('new-message', handleNewMessage);
       };
     }
-  }, [socket, chatId]);
+  }, [activeSocket, chatId]);
 
   // ── Add message (deduplication) ──────────────────
   const addMessage = (msg) => {
@@ -143,7 +294,10 @@ const ChatWindow = ({
     const id = String(msg.id || '');
     if (id && messageIdsRef.current.has(id)) return;
     if (id) messageIdsRef.current.add(id);
-    setMessages(prev => [...prev, msg]);
+    setMessages(prev => {
+      if (id && prev.some(m => String(m.id) === id)) return prev;
+      return [...prev, msg];
+    });
   };
 
   // ── Send message ─────────────────────────────────
@@ -165,6 +319,7 @@ const ChatWindow = ({
       created_at: new Date().toISOString()
     }]);
     setInputText('');
+    playDropSound(0.18);
 
     try {
       let currentChatId = chatId;
@@ -173,14 +328,28 @@ const ChatWindow = ({
         const startResponse = await startChat(
           text, String(userId || ''), String(userName || ''), String(userEmail || '')
         );
+        setIsAnalyzing(false);
         currentChatId = startResponse?.chat?.id ? String(startResponse.chat.id) : null;
         if (currentChatId) {
-          // Immediately show the AI response from startChat
-          if (startResponse.messages) {
+          // Immediately show the messages from startChat
+          if (startResponse.messages && startResponse.messages.length > 0) {
             setMessages(startResponse.messages);
-            startResponse.messages.forEach(m => messageIdsRef.current.add(String(m.id)));
+            messageIdsRef.current = new Set(startResponse.messages.map(m => String(m.id)));
+            // Check if there was an AI greeting/reply
+            if (startResponse.messages.some(m => m.sender_type === 'ai')) {
+              playMessageSound(0.24);
+            }
           }
           setChatId(currentChatId);
+          if (startResponse.chat?.status) {
+            setChatStatus(startResponse.chat.status);
+          }
+          if (startResponse.chat?.agent_name || startResponse.chat?.assigned_agent_id) {
+            setAssignedAgent({
+              name: startResponse.chat.agent_name || 'Support Agent',
+              id: startResponse.chat.assigned_agent_id
+            });
+          }
           if (onChatCreated) onChatCreated(currentChatId);
         }
         return;
@@ -188,11 +357,37 @@ const ChatWindow = ({
 
       if (currentChatId) {
         const response = await sendMessage(currentChatId, text);
+        setIsAnalyzing(false);
+        // Replace temp message with server message if available
+        if (response?.userMessage) {
+          setMessages(prev => prev.map(m => m.id === tempId ? response.userMessage : m));
+          messageIdsRef.current.delete(tempId);
+          messageIdsRef.current.add(String(response.userMessage.id));
+        }
         if (response?.success && response?.message) {
+          const isNew = !messageIdsRef.current.has(String(response.message.id));
           addMessage({
             ...response.message,
             suggestions: response.suggestions || response.message.suggestions || []
           });
+          if (isNew) {
+            playMessageSound(0.24);
+          }
+        }
+        if (response?.escalated || response?.status === 'pending') {
+          setChatStatus(response.status || 'pending');
+          if (response.assignedAgent) {
+            setAssignedAgent(response.assignedAgent);
+          } else if (response.status === 'pending') {
+            setAssignedAgent(null);
+          }
+        } else if (response?.status) {
+          setChatStatus(response.status);
+          if (response.assignedAgent) {
+            setAssignedAgent(response.assignedAgent);
+          } else if (response.status === 'active' && !response.assignedAgent) {
+            setAssignedAgent(null);
+          }
         }
       }
     } catch (error) {
@@ -213,6 +408,7 @@ const ChatWindow = ({
     const text = typeof suggestion === 'string' ? suggestion
       : suggestion?.text || suggestion?.label || String(suggestion || '');
     setInputText(text);
+    playDropSound(0.15);
   };
 
   // ✅ FIX: Optimistic update — update UI immediately, THEN call API
@@ -245,16 +441,48 @@ const ChatWindow = ({
           <button onClick={onBack} className="icon-btn" type="button" aria-label="Back">
             <ChevronLeft size={20} />
           </button>
-          <div className="bot-avatar-header"><Bot size={20} /></div>
+          <div className="bot-avatar-header">
+            {assignedAgent ? <User size={20} /> : <Bot size={20} />}
+          </div>
           <div>
-            <div className="bot-name">Chaty Support</div>
+            <div className="bot-name">
+              {assignedAgent ? (assignedAgent.name || 'Support Agent') : 'Chaty Support'}
+            </div>
             <div className="bot-status">
-              <span className="status-dot" style={{ color: isConnected ? '#10b981' : '#6b7280' }}>●</span>
-              {isConnected ? 'Online' : 'Connecting...'}
+              {chatStatus === 'pending' ? (
+                <>
+                  <span className="status-dot" style={{ color: '#f59e0b' }}>●</span>
+                  Connecting you to a support agent...
+                </>
+              ) : assignedAgent ? (
+                <>
+                  <span className="status-dot" style={{ color: '#10b981' }}>●</span>
+                  Connected to support agent
+                </>
+              ) : chatStatus === 'closed' ? (
+                <>
+                  <span className="status-dot" style={{ color: '#9ca3af' }}>●</span>
+                  Closed
+                </>
+              ) : (
+                <>
+                  <span className="status-dot" style={{ color: isConnected ? '#10b981' : '#6b7280' }}>●</span>
+                  {isConnected ? 'Online' : 'Connecting...'}
+                </>
+              )}
             </div>
           </div>
         </div>
         <div className="header-actions">
+          <button
+            onClick={toggleSound}
+            className="icon-btn"
+            type="button"
+            aria-label={isMutedState ? "Unmute sounds" : "Mute sounds"}
+            title={isMutedState ? "Unmute sounds" : "Mute sounds"}
+          >
+            {isMutedState ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
           <button onClick={onToggleExpand} className="icon-btn" type="button" aria-label="Expand">
             {isExpanded ? <Minimize size={18} /> : <Maximize size={18} />}
           </button>
@@ -278,14 +506,39 @@ const ChatWindow = ({
           );
         })}
 
-        {isAnalyzing && (
+        {isAnalyzing && chatStatus !== 'pending' && (
           <div className="analyzing-state">
             <div className="bot-avatar-small"><Bot size={16} /></div>
             <div className="analyzing-content">
               <div className="analyzing-label">Chaty</div>
               <div className="analyzing-text">
-                <span className="analyzing-icon">✓</span> Analyzing...
+                <span className="typing-dots">
+                  <span></span><span></span><span></span>
+                </span>
+                <span className="analyzing-subtext">Thinking...</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {chatStatus === 'pending' && (
+          <div className="queue-banner" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fef3c7',
+            color: '#92400e',
+            padding: '10px 14px',
+            borderRadius: '10px',
+            fontSize: '12px',
+            margin: '8px 0',
+            lineHeight: '1.4'
+          }}>
+            <span style={{ fontSize: '16px' }}>⏳</span>
+            <div>
+              <strong>Waiting for an agent...</strong>
+              <div>You are in the queue. A support agent will connect with you shortly.</div>
             </div>
           </div>
         )}
@@ -340,16 +593,27 @@ const MessageBubble = ({ message, onFeedback, onSuggestionClick }) => {
     );
   }
 
-  const isUser = message.sender_type === 'user';
-  const isAI   = message.sender_type === 'ai';
-  const isGreeting = String(message.id || '').startsWith('greeting') || String(message.id || '') === 'welcome';
-
   const getContent = () => {
     const c = message.content;
     if (c === null || c === undefined) return '';
     if (typeof c === 'string') return c;
     try { return JSON.stringify(c); } catch { return '[Content]'; }
   };
+
+  if (message.sender_type === 'system') {
+    return (
+      <div style={{ textAlign: 'center', margin: '8px 0', fontSize: '12px', color: '#6b7280' }}>
+        <span style={{ backgroundColor: '#f3f4f6', padding: '4px 10px', borderRadius: '12px' }}>
+          {getContent()}
+        </span>
+      </div>
+    );
+  }
+
+  const isUser  = message.sender_type === 'user';
+  const isAgent = message.sender_type === 'agent';
+  const isAI    = message.sender_type === 'ai';
+  const isGreeting = String(message.id || '').startsWith('greeting') || String(message.id || '') === 'welcome';
 
   const escapeHtml = (unsafe) => {
     return String(unsafe)
@@ -379,11 +643,17 @@ const MessageBubble = ({ message, onFeedback, onSuggestionClick }) => {
   return (
     <div className={`message-wrapper ${isUser ? 'user' : 'bot'}`}>
       {!isUser && (
-        <div className="message-avatar"><Bot size={16} /></div>
+        <div className="message-avatar">
+          {isAgent ? <User size={16} /> : <Bot size={16} />}
+        </div>
       )}
 
       <div className="message-content-wrapper">
-        {!isUser && <div className="message-sender">Chaty</div>}
+        {!isUser && (
+          <div className="message-sender">
+            {isAgent ? (message.agent_name || 'Support Agent') : 'Chaty'}
+          </div>
+        )}
 
         <div className={`message-bubble ${isUser ? 'user-bubble' : 'bot-bubble'}`}>
           <div
@@ -439,10 +709,6 @@ const MessageBubble = ({ message, onFeedback, onSuggestionClick }) => {
           </div>
         )}
       </div>
-
-      {isUser && (
-        <div className="message-avatar user-avatar"><User size={16} /></div>
-      )}
     </div>
   );
 };

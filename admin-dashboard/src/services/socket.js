@@ -5,20 +5,24 @@ const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 let socket = null
 
 export const initSocket = () => {
+  const token = localStorage.getItem('chaty_admin_token') || window.CHATY_AUTH?.token;
   if (!socket) {
-    const token = localStorage.getItem('chaty_admin_token') || window.CHATY_AUTH?.token;
     socket = io(`${SOCKET_URL}/admin`, {
       autoConnect: false,
       auth: { token }
     })
+  } else if (token && socket.auth?.token !== token) {
+    socket.auth = { token };
   }
   return socket
 }
 
 export const connectSocket = () => {
-  if (socket && !socket.connected) {
-    socket.connect()
+  const s = initSocket()
+  if (s && !s.connected) {
+    s.connect()
   }
+  return s
 }
 
 export const disconnectSocket = () => {
@@ -27,7 +31,12 @@ export const disconnectSocket = () => {
   }
 }
 
-export const getSocket = () => socket
+export const getSocket = () => {
+  if (!socket) {
+    return initSocket()
+  }
+  return socket
+}
 
 export default {
   initSocket,

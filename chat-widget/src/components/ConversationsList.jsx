@@ -1,7 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { isMuted, toggleMuted, subscribeMuteChange, playDropSound } from '../utils/sound';
 import './ConversationsList.css';
 
+const Volume2 = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+  </svg>
+);
+
+const VolumeX = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <line x1="23" y1="9" x2="17" y2="15" />
+    <line x1="17" y1="9" x2="23" y2="15" />
+  </svg>
+);
+
 const ConversationsList = ({ conversations, onSelectChat, onNewChat, onClose }) => {
+  const [isMutedState, setIsMutedState] = useState(isMuted());
+
+  useEffect(() => {
+    return subscribeMuteChange(setIsMutedState);
+  }, []);
+
+  const toggleSound = () => {
+    const next = toggleMuted();
+    setIsMutedState(next);
+    if (!next) playDropSound(0.2);
+  };
+
+  const handleSelect = (chatId) => {
+    playDropSound(0.16);
+    if (onSelectChat) onSelectChat(chatId);
+  };
+
+  const handleNew = () => {
+    playDropSound(0.18);
+    if (onNewChat) onNewChat();
+  };
+
   return (
     <div className="chat-window">
       <div className="chat-header">
@@ -16,7 +54,16 @@ const ConversationsList = ({ conversations, onSelectChat, onNewChat, onClose }) 
           </div>
         </div>
         <div className="header-actions">
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
+          <button
+            className="icon-btn"
+            onClick={toggleSound}
+            type="button"
+            aria-label={isMutedState ? "Unmute sounds" : "Mute sounds"}
+            title={isMutedState ? "Unmute sounds" : "Mute sounds"}
+          >
+            {isMutedState ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+          <button className="icon-btn" onClick={onClose} aria-label="Close" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><path d="M18 6L6 18M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -49,7 +96,7 @@ const ConversationsList = ({ conversations, onSelectChat, onNewChat, onClose }) 
               <div 
                 key={chat.id} 
                 className="chaty-conversation-card"
-                onClick={() => onSelectChat(chat.id)}
+                onClick={() => handleSelect(chat.id)}
               >
                 <div className="chaty-card-avatar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -76,7 +123,7 @@ const ConversationsList = ({ conversations, onSelectChat, onNewChat, onClose }) 
       </div>
 
       <div className="conversations-footer">
-        <button className="new-chat-btn" onClick={onNewChat}>
+        <button className="new-chat-btn" onClick={handleNew} type="button">
           Start a new chat
         </button>
         <div className="branding">

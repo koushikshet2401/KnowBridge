@@ -56,7 +56,12 @@ exports.getChatById = async (req, res) => {
     const tenantId = getTenantId(req) || req.tenant_id;
     if (!tenantId) return res.status(401).json({ error: 'Tenant ID required' });
 
-    const result = await pool.query('SELECT * FROM chats WHERE id = $1 AND tenant_id = $2', [chatId, tenantId]);
+    const result = await pool.query(`
+      SELECT c.*, a.name as agent_name, a.email as agent_email
+      FROM chats c
+      LEFT JOIN agents a ON c.assigned_agent_id = a.id
+      WHERE c.id = $1 AND c.tenant_id = $2
+    `, [chatId, tenantId]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Chat not found' });
     
     res.status(200).json({ success: true, chat: result.rows[0] });
@@ -132,7 +137,9 @@ exports.sendMessage = async (req, res) => {
       success: true,
       message: result.message,
       suggestions: result.suggestions || [],
-      escalated: result.escalated
+      escalated: result.escalated,
+      status: result.status,
+      assignedAgent: result.assignedAgent
     });
   } catch (error) {
     logger.error('Send message error:', error);

@@ -3,9 +3,11 @@ import ChatBubble from './ChatBubble';
 import ChatWindow from './ChatWindow';
 import ConversationsList from './ConversationsList';
 import { connectSocket, disconnectSocket } from '../services/socket';
+import { initEmbedSound, playDropSound, playMessageSound } from '../utils/sound';
 import './ChatWidget.css';
 
 const ChatWidget = ({
+  tenantId: propTenantId,
   userId,
   userName,
   userEmail,
@@ -20,6 +22,7 @@ const ChatWidget = ({
   const [chatId, setChatId]           = useState(null);
   const [agentMessages, setAgentMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [activeSocket, setActiveSocket] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   
   // New States for Conversations Feature
@@ -34,6 +37,11 @@ const ChatWidget = ({
   const safeCustomTrigger = Boolean(customTrigger);
   const safeTheme        = String(theme    || 'purple');
   const safePosition     = String(position || 'bottom-right');
+
+  // Trigger drop sound on widget embed / load
+  useEffect(() => {
+    initEmbedSound();
+  }, []);
 
   // Fetch conversation history
   useEffect(() => {
@@ -58,7 +66,7 @@ const ChatWidget = ({
 
   useEffect(() => {
     if (safeIsOpen && !isConnected) {
-      const socket = connectSocket(String(apiUrl || ''), String(userId || ''));
+      const socket = connectSocket(String(apiUrl || ''), String(userId || ''), propTenantId);
 
       if (!socket) {
         console.error('Chaty: Socket connection failed — apiUrl may be missing');
@@ -66,8 +74,19 @@ const ChatWidget = ({
       }
 
       socketRef.current = socket;
+      setActiveSocket(socket);
 
-      socket.on('connect',    () => { console.log('✅ Chat socket connected'); setIsConnected(true); });
+      if (socket.connected) {
+        setIsConnected(true);
+      }
+
+      socket.on('connect', () => {
+        console.log('✅ Chat socket connected');
+        setIsConnected(true);
+        if (chatId) {
+          socket.emit('join-chat', { chatId: String(chatId) });
+        }
+      });
       socket.on('disconnect', () => { console.log('❌ Chat socket disconnected'); setIsConnected(false); });
 
       socket.on('new-message', (data) => {
@@ -85,6 +104,7 @@ const ChatWidget = ({
 
         if (!safeIsOpen) {
           setUnreadCount(prev => (Number(prev) || 0) + 1);
+          playMessageSound(0.25);
         }
 
         if (Notification.permission === 'granted' && !safeIsOpen) {
@@ -102,9 +122,10 @@ const ChatWidget = ({
       return () => {
         disconnectSocket();
         setIsConnected(false);
+        setActiveSocket(null);
       };
     }
-  }, [safeIsOpen, apiUrl, userId]);
+  }, [safeIsOpen, apiUrl, userId, propTenantId]);
 
   useEffect(() => {
     if (safeIsOpen) {
@@ -114,17 +135,19 @@ const ChatWidget = ({
   }, [safeIsOpen]);
 
   useEffect(() => {
-    if (isConnected && socketRef.current && chatId) {
+    const s = activeSocket || socketRef.current;
+    if (isConnected && s && chatId) {
       console.log(`🔗 Joining chat room: ${chatId}`);
-      socketRef.current.emit('join-chat', { chatId: String(chatId) });
+      s.emit('join-chat', { chatId: String(chatId) });
     }
-  }, [isConnected, chatId]);
+  }, [isConnected, chatId, activeSocket]);
 
   const handleChatCreated = (newChatId) => {
     const safeChatId = newChatId ? String(newChatId) : null;
     setChatId(safeChatId);
-    if (socketRef.current && safeChatId) {
-      socketRef.current.emit('join-chat', { chatId: safeChatId });
+    const s = activeSocket || socketRef.current;
+    if (s && safeChatId) {
+      s.emit('join-chat', { chatId: safeChatId });
     }
   };
 
@@ -141,12 +164,19 @@ const ChatWidget = ({
     setAgentMessages([]);
   };
 
+  const handleBubbleToggle = () => {
+    if (!safeIsOpen) {
+      playDropSound(0.20);
+    }
+    if (onToggle) onToggle();
+  };
+
   return (
     <div className={`chat-widget theme-${safeTheme} position-${safePosition} ${safeCustomTrigger ? 'custom-trigger-mode' : ''} ${isExpanded ? 'chaty-chat-expanded' : ''}`}>
       {!safeCustomTrigger && (
         <ChatBubble
           isOpen={safeIsOpen}
-          onClick={onToggle}
+          onClick={handleBubbleToggle}
           unreadCount={Number(unreadCount) || 0}
           isConnected={Boolean(isConnected)}
         />
@@ -167,7 +197,7 @@ const ChatWidget = ({
           chatId={chatId    ? String(chatId)    : null}
           messages={agentMessages}
           apiUrl={apiUrl    ? String(apiUrl)    : ''}
-          socket={socketRef.current}
+          socket={activeSocket || socketRef.current}
           isConnected={Boolean(isConnected)}
           onClose={onClose}
           onBack={() => setCurrentView('conversations')}

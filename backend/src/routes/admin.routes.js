@@ -25,6 +25,7 @@ router.patch('/chats/:chatId/assign', adminController.assignChat);
 router.post('/chats/:chatId/close',   adminController.closeChat);
 router.post('/chats/:chatId/messages', adminController.replyToChat);
 router.patch('/chats/:chatId/status', adminController.updateChatStatus);
+router.delete('/chats/:chatId',       adminController.deleteChat);
 
 // ── ✅ CRAWLER ROUTES FIRST (before :id routes!) ──
 router.post('/knowledge-base/crawl',                       kbController.startCrawl);
@@ -63,9 +64,10 @@ router.patch('/reviews/:id/resolve', adminController.resolveReview);
 router.get('/feedback/analysis',  adminController.getFeedbackAnalysis);
 
 // ── Notifications ────────────────────────────
-router.get('/notifications',               notificationController.getNotifications);
-router.put('/notifications/:id/read',      notificationController.markAsRead);
-router.put('/notifications/read-all',      notificationController.markAllAsRead);
+router.get('/notifications',                    notificationController.getNotifications);
+router.put('/notifications/chat/:chatId/read',  notificationController.markChatNotificationsAsRead);
+router.put('/notifications/:id/read',           notificationController.markAsRead);
+router.put('/notifications/read-all',           notificationController.markAllAsRead);
 
 // ── Settings ─────────────────────────────────
 router.get('/settings',  adminController.getSettings);

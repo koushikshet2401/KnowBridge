@@ -53,6 +53,12 @@ class ChatService {
         const result = await this.processMessage({ chatId: chat.id, content: message, userId: user.id });
         if (result.userMessage) messages.push(result.userMessage);
         if (result.aiMessage)   messages.push(result.aiMessage);
+        if (result.status) {
+          chat.status = result.status;
+          if (result.assignedAgent) {
+            chat.assigned_agent_id = result.assignedAgent.id;
+          }
+        }
       }
 
       return { chat, messages, user };
@@ -85,12 +91,21 @@ class ChatService {
 
       if (chatRow.assigned_agent_id || chatRow.status === 'pending' || chatRow.status === 'closed') {
         // Human agent is handling this chat, it's waiting for one, or it's closed. Do not generate an AI response.
+        let assignedAgent = null;
+        if (chatRow.assigned_agent_id) {
+          const agentRes = await pool.query('SELECT id, name FROM agents WHERE id = $1', [chatRow.assigned_agent_id]);
+          if (agentRes.rows[0]) {
+            assignedAgent = { id: agentRes.rows[0].id, name: agentRes.rows[0].name };
+          }
+        }
         return {
           message: null,
           userMessage,
           aiMessage: null,
           suggestions: [],
-          escalated: false
+          escalated: chatRow.status === 'pending' || !!chatRow.assigned_agent_id,
+          status: chatRow.status,
+          assignedAgent
         };
       }
       
@@ -100,11 +115,11 @@ class ChatService {
         await pool.query(`UPDATE chats SET metadata = $1 WHERE id = $2`, [JSON.stringify(metadata), chatId]);
         
         if (['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'please', 'i need'].some(k => lowerMsg.includes(k))) {
-          this.escalateChatToHuman({
+          const escResult = await this.escalateChatToHuman({
             chatId,
             userQuestion: "User confirmed handover after consecutive negative feedback",
             reason: 'Consecutive thumbs down'
-          }).catch(e => logger.error('Escalation error:', e.message));
+          });
           
           const confirmMsg = await pool.query(
             `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at) VALUES ($1, 'ai', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
@@ -118,7 +133,9 @@ class ChatService {
             userMessage,
             aiMessage: confirmMsg.rows[0],
             suggestions: [],
-            escalated: true
+            escalated: true,
+            status: escResult ? escResult.status : 'pending',
+            assignedAgent: escResult ? escResult.assignedAgent : null
           };
         } else if (['no', 'nope', 'nah', 'not now'].some(k => lowerMsg.includes(k))) {
           const cancelMsg = await pool.query(
@@ -162,13 +179,6 @@ class ChatService {
         };
       }
 
-      // ✅ If escalation needed: update status to pending IMMEDIATELY
-      // This prevents any concurrent request from sending another AI response
-      if (aiResult.needsEscalation) {
-        await pool.query(`UPDATE chats SET status = 'pending', updated_at = NOW() WHERE id = $1`, [chatId]);
-        logger.info(`🔔 Chat ${chatId} status → pending (escalation triggered)`);
-      }
-
       // ── Save AI response ─────────────────────────
       const aiMsg = await pool.query(
         `INSERT INTO messages (chat_id, sender_type, content, tenant_id, created_at) VALUES ($1, 'ai', $2, (SELECT tenant_id FROM chats WHERE id = $1), NOW()) RETURNING *`,
@@ -183,13 +193,20 @@ class ChatService {
         });
       }
 
-      // ── Handle escalation (email + socket notify) ─
+      // ── Handle escalation (assignment, status, email + socket notify) ─
+      let escalationResult = null;
       if (aiResult.needsEscalation) {
-        this.escalateChatToHuman({
+        escalationResult = await this.escalateChatToHuman({
           chatId,
           userQuestion: content,
           reason: 'User explicitly requested a human agent'
-        }).catch(e => logger.error('Escalation error:', e.message));
+        });
+      } else if (chatRow.status === 'pending') {
+        // Chat was returned to AI or AI resumed answering; ensure status is active
+        await pool.query(
+          `UPDATE chats SET status = 'active', updated_at = NOW() WHERE id = $1`,
+          [chatId]
+        );
       }
 
       return {
@@ -197,7 +214,9 @@ class ChatService {
         userMessage,
         aiMessage,
         suggestions: aiResult.suggestions || [],
-        escalated:   aiResult.needsEscalation || false
+        escalated:   aiResult.needsEscalation || false,
+        status:      escalationResult ? escalationResult.status : 'active',
+        assignedAgent: escalationResult ? escalationResult.assignedAgent : undefined
       };
     } catch (error) {
       logger.error('Process message error:', error.message);
@@ -215,60 +234,134 @@ class ChatService {
         [chatId]
       );
       const chat = chatResult.rows[0];
+      if (!chat) return null;
+
+      // Prevent duplicate escalation notifications/emails on repeated clicks
+      const isAlreadyEscalated = chat.status === 'pending' || !!chat.assigned_agent_id;
+
+      // Check for available agent for auto-assignment
+      const Agent = require('../models/Agent');
+      let leastBusyAgent = null;
+      try {
+        leastBusyAgent = await Agent.getLeastBusyAgent(chat.tenant_id);
+      } catch (err) {
+        logger.warn('Failed to query least busy agent:', err.message);
+      }
+
+      let updatedChat = chat;
+      let assignedAgent = null;
+
+      if (leastBusyAgent) {
+        const updateRes = await pool.query(
+          `UPDATE chats 
+           SET status = 'active', 
+               assigned_agent_id = $1, 
+               escalated_at = COALESCE(escalated_at, NOW()), 
+               updated_at = NOW() 
+           WHERE id = $2 
+           RETURNING *`,
+          [leastBusyAgent.id, chatId]
+        );
+        updatedChat = updateRes.rows[0];
+        assignedAgent = leastBusyAgent;
+        logger.info(`Assigned chat ${chatId} to agent ${leastBusyAgent.name} (${leastBusyAgent.id})`);
+      } else {
+        const updateRes = await pool.query(
+          `UPDATE chats 
+           SET status = 'pending', 
+               escalated_at = COALESCE(escalated_at, NOW()), 
+               updated_at = NOW() 
+           WHERE id = $1 
+           RETURNING *`,
+          [chatId]
+        );
+        updatedChat = updateRes.rows[0];
+        logger.info(`Placed chat ${chatId} in pending queue (no agent available)`);
+      }
 
       // Notify every agent of this chat's tenant (never other tenants)
-      const agentsResult = await pool.query(
-        `SELECT id, email, name, role FROM agents WHERE tenant_id = $1`,
-        [chat.tenant_id]
-      );
-      
-      const agentEmails = agentsResult.rows.map(a => a.email).filter(Boolean);
+      if (!isAlreadyEscalated) {
+        const agentsResult = await pool.query(
+          `SELECT id, email, name, role FROM agents WHERE tenant_id = $1`,
+          [chat.tenant_id]
+        );
+        
+        const agentEmails = agentsResult.rows.map(a => a.email).filter(Boolean);
 
-      logger.info(`🔔 Escalating chat ${chatId} — notifying ${agentEmails.length} agents for tenant ${chat.tenant_id}`);
+        logger.info(`🔔 Escalating chat ${chatId} — notifying ${agentEmails.length} agents for tenant ${chat.tenant_id}`);
 
-      // Send email
-      if (agentEmails.length > 0 && process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
-        try {
-          await emailService.sendEscalationEmail({
-            agentEmails,
-            userQuestion,
-            chatId,
-            clientDomain: chat?.client_domain || 'unknown',
-            userName:     chat?.user_name     || 'Anonymous',
-            userEmail:    chat?.user_email    || 'Not provided'
-          });
-        } catch (emailErr) {
-          logger.error('Email notification failed:', emailErr.message);
+        // Send email
+        if (agentEmails.length > 0 && process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
+          try {
+            await emailService.sendEscalationEmail({
+              agentEmails,
+              userQuestion: userQuestion || 'Customer requested human support',
+              chatId,
+              clientDomain: chat?.client_domain || 'unknown',
+              userName:     chat?.user_name     || 'Anonymous',
+              userEmail:    chat?.user_email    || 'Not provided'
+            });
+          } catch (emailErr) {
+            logger.error('Email notification failed:', emailErr.message);
+          }
+        }
+
+        // Save notification in DB
+        for (const agent of agentsResult.rows) {
+          try {
+            await pool.query(
+              `INSERT INTO notifications (user_id, type, message, chat_id, is_read, created_at)
+               VALUES ($1, 'escalation', $2, $3, false, NOW())`,
+              [agent.id, `Human support needed: "${(userQuestion || '').slice(0, 100)}"`, chatId]
+            );
+          } catch (e) {
+            logger.warn(`Could not save notification for ${agent.email}:`, e.message);
+          }
         }
       }
 
-      // Save notification in DB
-      for (const agent of agentsResult.rows) {
-        try {
-          await pool.query(
-            `INSERT INTO notifications (user_id, type, message, chat_id, is_read, created_at)
-             VALUES ($1, 'escalation', $2, $3, false, NOW())`,
-            [agent.id, `Human support needed: "${userQuestion.slice(0, 100)}"`, chatId]
-          );
-        } catch (e) {
-          logger.warn(`Could not save notification for ${agent.email}:`, e.message);
-        }
-      }
+      // Socket notification to client widget & admin chat detail room
+      emitToChat(chatId, 'chat-status-changed', {
+        chatId,
+        status: updatedChat.status,
+        assignedAgentId: updatedChat.assigned_agent_id,
+        agentName: assignedAgent ? assignedAgent.name : null,
+        isWaiting: !assignedAgent
+      });
 
-      // Socket notification (isolated to tenant)
-      if (global.io) {
-        global.io.of('/admin').to(`tenant_room_${chat.tenant_id}`).emit('chat-escalated', {
+      if (assignedAgent) {
+        emitToChat(chatId, 'chat-assigned', {
           chatId,
-          userQuestion,
-          clientDomain: chat?.client_domain || 'unknown',
-          userName:     chat?.user_name     || 'Anonymous',
-          message:      'Chat needs human support'
+          agentId: assignedAgent.id,
+          agentName: assignedAgent.name
         });
       }
 
-      logger.info(`✅ Chat ${chatId} escalated to human agents`);
+      // Socket notification (isolated to tenant admin room)
+      if (global.io) {
+        global.io.of('/admin').to(`tenant_room_${chat.tenant_id}`).emit('chat-escalated', {
+          chatId,
+          userQuestion: userQuestion || 'Customer requested human support',
+          clientDomain: chat?.client_domain || 'unknown',
+          userName:     chat?.user_name     || 'Anonymous',
+          status:       updatedChat.status,
+          assignedAgentId: updatedChat.assigned_agent_id,
+          agentName:    assignedAgent ? assignedAgent.name : null,
+          message:      assignedAgent ? `Chat assigned to ${assignedAgent.name}` : 'Chat needs human support (in queue)'
+        });
+        global.io.of('/admin').to(`tenant_room_${chat.tenant_id}`).emit('chat-status-changed', {
+          chatId,
+          status: updatedChat.status,
+          assignedAgentId: updatedChat.assigned_agent_id,
+          agentName: assignedAgent ? assignedAgent.name : null
+        });
+      }
+
+      logger.info(`✅ Chat ${chatId} escalation complete (status: ${updatedChat.status})`);
+      return { chat: updatedChat, assignedAgent, status: updatedChat.status };
     } catch (error) {
       logger.error('Escalation error:', error.message);
+      return null;
     }
   }
 
@@ -276,18 +369,38 @@ class ChatService {
   async handleFeedback({ messageId, chatId, userId, rating, comment }) {
     try {
       let feedback;
+      const isPositive = rating === 'positive';
       try {
-        const chatCheck = await pool.query(`SELECT user_id FROM chats WHERE id = $1`, [chatId]);
-        const validUserId = chatCheck.rows[0]?.user_id || null;
-        const r = await pool.query(
-          `INSERT INTO feedback (message_id, chat_id, user_id, rating, comment, created_at)
-           VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
-          [messageId, chatId, validUserId, rating, comment]
+        const chatCheck = await pool.query(`SELECT user_id, tenant_id FROM chats WHERE id = $1`, [chatId]);
+        const validUserId = chatCheck.rows[0]?.user_id || userId || null;
+        const tenantId = chatCheck.rows[0]?.tenant_id || null;
+
+        // Prevent duplicate feedback submissions for the same message
+        const existingFeedback = await pool.query(
+          `SELECT * FROM feedback WHERE message_id = $1`,
+          [messageId]
         );
-        feedback = r.rows[0];
+
+        if (existingFeedback.rows.length > 0) {
+          const r = await pool.query(
+            `UPDATE feedback 
+             SET rating = $1, is_positive = $2, comment = COALESCE($3, comment)
+             WHERE message_id = $4
+             RETURNING *`,
+            [rating, isPositive, comment, messageId]
+          );
+          feedback = r.rows[0];
+        } else {
+          const r = await pool.query(
+            `INSERT INTO feedback (tenant_id, message_id, chat_id, user_id, rating, is_positive, comment, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
+            [tenantId, messageId, chatId, validUserId, rating, isPositive, comment]
+          );
+          feedback = r.rows[0];
+        }
       } catch (e) {
         logger.warn('Could not save feedback:', e.message);
-        feedback = { messageId, rating };
+        feedback = { messageId, rating, is_positive: isPositive };
       }
 
       let action         = 'recorded';
@@ -346,8 +459,15 @@ class ChatService {
 
   // ── Manual escalate ─────────────────────────────
   async escalateChat({ chatId, reason }) {
+    const res = await this.escalateChatToHuman({
+      chatId,
+      userQuestion: reason || 'Manual escalation',
+      reason: reason || 'Manual escalation'
+    });
+    if (res && res.chat) return res.chat;
+
     const r = await pool.query(
-      `UPDATE chats SET status = 'pending', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      `UPDATE chats SET status = 'pending', escalated_at = COALESCE(escalated_at, NOW()), updated_at = NOW() WHERE id = $1 RETURNING *`,
       [chatId]
     );
     if (!r.rows[0]) throw new Error('Chat not found');

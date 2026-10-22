@@ -4,8 +4,7 @@ import { Eye, EyeOff, Save, UserPlus, Key, CheckCircle, AlertCircle, Loader, Glo
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-// OUTSIDE component - prevents remount on each keystroke
-const InputField = ({ label, type = 'text', value, onChange, placeholder, showToggle, showValue, onToggle, required = true }) => (
+const InputField = ({ label, type = 'text', value, onChange, placeholder, showToggle, showValue, onToggle, required = true, disabled = false, readOnly = false }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <div className="relative">
@@ -14,8 +13,10 @@ const InputField = ({ label, type = 'text', value, onChange, placeholder, showTo
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-10"
+        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-10 ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
         required={required}
+        disabled={disabled}
+        readOnly={readOnly}
       />
       {showToggle && (
         <button
@@ -60,7 +61,13 @@ const Settings = () => {
   const [siteResult, setSiteResult]   = useState(null)
 
   // Password change state
-  const [pwForm, setPwForm]     = useState({ email: '', currentPassword: '', newPassword: '', confirmPassword: '' })
+  const currentUser = JSON.parse(localStorage.getItem('chaty_admin_user') || '{}');
+  const [pwForm, setPwForm]     = useState({
+    email: currentUser.email || '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew]   = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -73,6 +80,17 @@ const Settings = () => {
   const [agentResult, setAgentResult]   = useState(null)
 
   useEffect(() => {
+    // Sync current user email from /auth/me or localStorage
+    api.get('/auth/me')
+      .then(res => {
+        if (res.data.agent?.email) {
+          setPwForm(p => ({ ...p, email: res.data.agent.email }))
+          const stored = JSON.parse(localStorage.getItem('chaty_admin_user') || '{}')
+          localStorage.setItem('chaty_admin_user', JSON.stringify({ ...stored, ...res.data.agent }))
+        }
+      })
+      .catch(() => {})
+
     api.get('/admin/settings')
       .then(res => {
         const s = res.data.settings || {}
@@ -261,7 +279,12 @@ const Settings = () => {
               value={pwForm.email}
               onChange={e => setPwForm(p => ({ ...p, email: e.target.value }))}
               placeholder="admin@support.com"
+              disabled
+              readOnly
             />
+            <p className="text-xs text-gray-500 -mt-2">
+              Password will be updated for your logged-in account (<strong>{pwForm.email || 'Loading...'}</strong>).
+            </p>
             <InputField
               label="Current Password"
               value={pwForm.currentPassword}

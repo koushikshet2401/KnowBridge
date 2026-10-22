@@ -34,12 +34,10 @@ const setupAdminSocket = (io) => {
     // Join strictly isolated tenant room
     socket.join(`tenant_room_${tenantId}`);
     
-    // Update agent status to online
-    try {
-      await Agent.updateStatus(agentId, 'online');
-    } catch (error) {
+    // Update agent status to online (in background without blocking event registration)
+    Agent.updateStatus(agentId, 'online').catch((error) => {
       logger.error('Error updating agent status:', error.message);
-    }
+    });
 
     // Handle events
     // The dashboard sends { chatId }; older callers send the bare id
@@ -47,16 +45,34 @@ const setupAdminSocket = (io) => {
 
     socket.on('join-chat', async (data) => {
       const chatId = toChatId(data);
+      logger.info(`Admin socket ${socket.id} (Agent ${agentId}) received join-chat for: ${chatId}`);
       if (!chatId) return;
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(chatId)) {
+        logger.warn(`Agent ${agentId} attempted to join invalid chat room format: ${chatId}`);
+        socket.emit('joined-chat', { chatId, success: false, error: 'Invalid chat ID' });
+        return;
+      }
+
       try {
         // Agents may only watch chats that belong to their own tenant
-        const owns = await pool.query('SELECT 1 FROM chats WHERE id = $1 AND tenant_id = $2', [chatId, tenantId]);
-        if (owns.rows.length === 0) return;
+        if (tenantId && uuidRegex.test(tenantId)) {
+          const owns = await pool.query('SELECT 1 FROM chats WHERE id = $1 AND tenant_id = $2', [chatId, tenantId]);
+          if (owns.rows.length === 0) {
+            logger.warn(`Agent ${agentId} attempted to join chat ${chatId} not belonging to tenant ${tenantId}`);
+            socket.emit('joined-chat', { chatId, success: false, error: 'Chat not found' });
+            return;
+          }
+        }
       } catch (e) {
+        logger.error(`Error validating chat access for agent ${agentId}:`, e.message);
+        socket.emit('joined-chat', { chatId, success: false, error: 'Chat access validation failed' });
         return;
       }
       socket.join(`chat:${chatId}`);
-      logger.info(`Agent ${agentId} joined chat room: ${chatId}`);
+      logger.info(`✅ Agent ${agentId} joined chat room: ${chatId}`);
+      socket.emit('joined-chat', { chatId, success: true });
     });
 
     socket.on('leave-chat', (data) => {

@@ -31,12 +31,36 @@ const app = express();
 app.set('trust proxy', 1); // Trust first proxy for express-rate-limit behind Nginx
 const server = http.createServer(app);
 
+// CORS origins handling
+const configuredOrigins = (process.env.CORS_ORIGIN || process.env.SOCKET_IO_CORS_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (process.env.NODE_ENV !== 'production') {
+    if (origin === 'null') return true;
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
+  }
+  if (configuredOrigins.length === 0 || configuredOrigins.includes('*') || configuredOrigins.includes(origin)) {
+    return true;
+  }
+  return false;
+};
+
 // ----------------
 // Socket.IO Setup
 // ----------------
 const io = socketIo(server, {
   cors: {
-    origin: process.env.SOCKET_IO_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173'],
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Origin not allowed by Socket.IO CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -56,7 +80,13 @@ app.use(helmet({
 
 // CORS
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000', 'http://localhost:5173'],
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
   credentials: process.env.CORS_CREDENTIALS !== 'false',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: process.env.CORS_ALLOWED_HEADERS?.split(',') || ['Content-Type', 'Authorization', 'X-Chaty-Token', 'X-Client-Domain', 'X-Tenant-ID']

@@ -34,11 +34,13 @@ if (!process.env.DATABASE_URL) {
 
 // Create PostgreSQL connection pool with environment variables
 const poolConfig = {
-  // Connection pool settings
-  max: parseInt(process.env.DB_POOL_MAX || '20', 10), // Maximum connections in pool
-  min: parseInt(process.env.DB_POOL_MIN || '2', 10),  // Minimum connections
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
-  connectionTimeoutMillis: parseInt(process.env.DB_CONNECT_TIMEOUT || '10000', 10),
+  // Connection pool settings (min: 0 is essential for Supabase Pooler / Supavisor)
+  max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+  min: parseInt(process.env.DB_POOL_MIN || '0', 10),
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '10000', 10),
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECT_TIMEOUT || '15000', 10),
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
   
   // SSL configuration (important for production)
   ssl: process.env.DB_SSL === 'true' ? {
@@ -58,21 +60,29 @@ if (process.env.DATABASE_URL) {
 
 const pool = new Pool(poolConfig);
 
-// Test database connection on startup
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error(err);
-    logger.error('❌ Database connection failed:', err);
-    logger.error('Please ensure PostgreSQL is running and credentials are correct');
-    process.exit(1);
-  }
-  
-  logger.info('✅ Database connected successfully');
-  logger.info(`📊 Database: ${process.env.DB_NAME} @ ${process.env.DB_HOST}:${process.env.DB_PORT}`);
-  
-  // Release the client back to the pool
-  release();
-});
+// Test database connection on startup with retries (handles Supabase waking up from paused state)
+const testConnectionWithRetry = (retries = 5, delayMs = 3000) => {
+  pool.connect((err, client, release) => {
+    if (err) {
+      if (retries > 0) {
+        logger.warn(`⚠️ Database connection attempt failed (${err.message}). Retrying in ${delayMs / 1000}s... (${retries} attempts left)`);
+        setTimeout(() => testConnectionWithRetry(retries - 1, delayMs), delayMs);
+      } else {
+        console.error(err);
+        logger.error('❌ Database connection failed after multiple retries:', err);
+        logger.error('Please ensure PostgreSQL is running, unpaused, and credentials are correct');
+        process.exit(1);
+      }
+      return;
+    }
+
+    logger.info('✅ Database connected successfully');
+    logger.info(`📊 Database: ${process.env.DB_NAME} @ ${process.env.DB_HOST}:${process.env.DB_PORT}`);
+    release();
+  });
+};
+
+testConnectionWithRetry();
 
 // Handle pool errors
 pool.on('error', (err) => {

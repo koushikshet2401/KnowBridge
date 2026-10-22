@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Chats from './pages/Chats'
@@ -12,8 +12,9 @@ import Login from './pages/Login'
 // Simple Protected Route component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('chaty_admin_token');
+  const location = useLocation();
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   return children;
 };
